@@ -1,0 +1,20 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "竹子定格动画"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "竹子定格动画主界面"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "竹子定格动画"
+    },
+    {
+      "name": "media_permission_reason",
+      "value": "需要访问媒体文件以读取和保存图片及视频"
+    }
+  ]
+}
