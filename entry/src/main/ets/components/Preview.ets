@@ -17,6 +17,10 @@ export struct Preview {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#1E1E1E')
+    .backgroundColor($r('sys.color.background_tertiary'))
+    .border({
+      width: 1,
+      color: $r('sys.color.background_fourth')
+    })
   }
 }

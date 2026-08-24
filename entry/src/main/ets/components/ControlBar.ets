@@ -36,8 +36,7 @@ export struct ControlBar {
     .width('100%')
     .height('100%')
     .padding({ left: 16, right: 16 })
-    .backgroundColor('#FFFFFF')
-    .borderRadius({ topLeft: 12, topRight: 12 })
+    .backgroundColor($r('sys.color.background_tertiary'))
     .shadow({ radius: 2, color: '#1A000000', offsetY: -2 })
   }
 }

@@ -3,16 +3,58 @@ import { ProjectManager, ProjectMeta } from '../common/ProjectManager';
 import { ZapUtils } from '../common/ZapUtils';
 import { common } from '@kit.AbilityKit';
 
+@CustomDialog
+struct NewProjectDialog {
+  controller?: CustomDialogController;
+  onConfirm: (name: string) => void = () => {};
+
+  @State inputText: string = '';
+
+  build() {
+    Column({ space: 16 }) {
+      Text('新项目')
+        .fontSize(20)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary')) // 显式使用系统色
+
+      TextInput({ placeholder: '请输入项目名称', text: this.inputText })
+        .width('80%')
+        .onChange((value: string) => {
+          this.inputText = value;
+        })
+
+      Row({ space: 20 }) {
+        Button('取消')
+          .buttonStyle(ButtonStyleMode.NORMAL)
+          .onClick(() => {
+            this.controller?.close();
+          })
+        Button('创建')
+          .buttonStyle(ButtonStyleMode.EMPHASIZED)
+          .onClick(() => {
+            if (this.inputText.trim()) {
+              this.onConfirm(this.inputText.trim());
+              this.controller?.close();
+            }
+          })
+      }
+    }
+    .padding(20)
+    .borderRadius(12) // 为了美观加一点圆角
+  }
+}
+
 @Entry
 @Component
 struct ProjectListPage {
   @State projects: ProjectMeta[] = [];
   @State sortBy: 'name' | 'time' = 'time';
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+  private newProjectDialogController: CustomDialogController | null = null;
 
   onPageShow() {
     console.log("刷新");
-    this.loadProjects();  // 每次显示页面时刷新列表
+    this.loadProjects();
   }
 
   aboutToAppear() {
@@ -27,7 +69,21 @@ struct ProjectListPage {
   }
 
   createProject() {
-    router.pushUrl({ url: 'pages/EditorPage' });
+    if (this.newProjectDialogController) {
+      this.newProjectDialogController.close();
+      this.newProjectDialogController = null;
+    }
+    this.newProjectDialogController = new CustomDialogController({
+      builder: NewProjectDialog({
+        onConfirm: (name: string) => {
+          router.pushUrl({
+            url: 'pages/EditorPage',
+            params: { projectName: name }
+          });
+        }
+      })
+    });
+    this.newProjectDialogController.open();
   }
 
   openProject(project: ProjectMeta) {
@@ -59,42 +115,44 @@ struct ProjectListPage {
         Text('竹子定格动画')
           .fontSize(24)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#333')
+          .fontColor($r('sys.color.font_primary'))
           .layoutWeight(1)
 
         Button(this.sortBy === 'time' ? '按时间' : '按名称')
           .fontSize(14)
-          .fontColor('#007AFF')
-          .backgroundColor(Color.Transparent)
+          .backgroundColor($r('sys.color.background_tertiary')) // 透明背景，颜色继承
+          .fontColor($r('sys.color.font_primary')) // 显式指定次级文字色
           .onClick(() => {
             this.sortBy = this.sortBy === 'time' ? 'name' : 'time';
             this.projects = ProjectManager.sortProjects(this.projects, this.sortBy);
           })
 
         Button() {
-          SymbolGlyph($r('sys.symbol.plus')).fontSize(24)
+          SymbolGlyph($r('sys.symbol.plus'))
+            .fontSize(24)
+            .fontColor([Color.White])
         }
         .width(40)
         .height(40)
         .borderRadius(20)
-        .backgroundColor('#007AFF')
-        .fontColor(Color.White)
+        .backgroundColor($r('sys.color.background_emphasize'))
+        .fontColor($r('sys.color.font_primary')) // 图标颜色跟随系统
         .margin({ left: 8 })
         .onClick(() => this.createProject())
       }
       .width('100%')
       .height(56)
       .padding({ left: 16, right: 16 })
-      .backgroundColor('#F5F5F5')
+      .backgroundColor($r('sys.color.background_primary'))
 
       if (this.projects.length === 0) {
         Column() {
           Text('还没有项目')
             .fontSize(18)
-            .fontColor('#999')
+            .fontColor($r('sys.color.font_primary'))
           Text('点击右上角 + 创建新项目')
             .fontSize(14)
-            .fontColor('#BBB')
+            .fontColor($r('sys.color.font_secondary')) // 使用次级文字色
             .margin({ top: 8 })
         }
         .width('100%')
@@ -106,24 +164,26 @@ struct ProjectListPage {
             ListItem() {
               Row() {
                 SymbolGlyph($r('sys.symbol.folder'))
-                  .fontSize(28)
+                  .fontSize(32)
                   .width(40)
                   .height(40)
+                  .fontColor([$r('sys.color.font_primary')])
 
                 Column() {
                   Text(project.name)
-                    .fontSize(16)
+                    .fontSize(18)
                     .fontWeight(FontWeight.Medium)
+                    .fontColor($r('sys.color.font_primary'))
                     .maxLines(1)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
                   Row() {
                     Text(`帧数: ${project.frameCount}`)
-                      .fontSize(12)
-                      .fontColor('#999')
+                      .fontSize(14)
+                      .fontColor($r('sys.color.font_secondary'))
                     Text('  ')
                     Text(new Date(project.lastModified).toLocaleString())
-                      .fontSize(12)
-                      .fontColor('#999')
+                      .fontSize(14)
+                      .fontColor($r('sys.color.font_secondary'))
                   }
                 }
                 .layoutWeight(1)
@@ -131,9 +191,11 @@ struct ProjectListPage {
                 .padding({ left: 12 })
 
                 Button() {
-                  SymbolGlyph($r('sys.symbol.ellipsis_circle')).fontSize(20)
+                  SymbolGlyph($r('sys.symbol.ellipsis_circle'))
+                    .fontSize(28)
+                    .fontColor([$r('sys.color.font_primary')])
                 }
-                .type(ButtonType.Normal)
+                .buttonStyle(ButtonStyleMode.TEXTUAL)
                 .backgroundColor(Color.Transparent)
                 .bindMenu([
                   {
@@ -141,13 +203,13 @@ struct ProjectListPage {
                     action: () => this.deleteProject(project, index)
                   }
                 ])
-                .width(36)
-                .height(36)
+                .width(40)
+                .height(40)
               }
               .width('100%')
-              .height(64)
+              .height(72)
               .padding({ left: 16, right: 8 })
-              .backgroundColor(Color.White)
+              .backgroundColor($r('sys.color.comp_background_tertiary'))
               .borderRadius(8)
               .onClick(() => this.openProject(project))
             }
@@ -156,11 +218,12 @@ struct ProjectListPage {
         }
         .layoutWeight(1)
         .width('100%')
-        .backgroundColor('#F9F9F9')
+        .backgroundColor($r('sys.color.background_primary'))
       }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F9F9F9')
+    .backgroundColor($r('sys.color.background_primary'))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]) // 顺便解决小白条沉浸
   }
 }

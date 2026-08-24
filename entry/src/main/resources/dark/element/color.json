@@ -2,15 +2,11 @@
   "color": [
     {
       "name": "start_window_background",
-      "value": "#FFFFFF"
-    },
-    {
-      "name": "primary",
-      "value": "#007AFF"
+      "value": "#1A1A1A"
     },
     {
       "name": "selected_frame",
-      "value": "#C8DFFF"
+      "value": "#4A4A4A"
     }
   ]
 }

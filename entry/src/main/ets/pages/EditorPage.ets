@@ -6,17 +6,16 @@ import { ControlBar } from '../components/ControlBar';
 import { ImageUtils } from '../common/ImageUtils';
 import { TempFileManager } from '../common/TempFileManager';
 import { picker } from '@kit.CoreFileKit';
-import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit';
+import { common } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { ProjectManager, ProjectMeta } from '../common/ProjectManager';
 import { ZapUtils } from '../common/ZapUtils';
 import { promptAction } from '@kit.ArkUI';
 import { image } from '@kit.ImageKit';
 import { fileIo } from '@kit.CoreFileKit';
-// ====== 使用 @tyousan/ffmpeg ======
 import { executeCommandSync, CommandSyncResult } from '@tyousan/ffmpeg';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
-import { dataSharePredicates } from '@kit.ArkData';
+import window from '@ohos.window';
 
 // ====== 类型定义 ======
 interface TargetSize {
@@ -29,49 +28,7 @@ interface FpsRepeat {
   repeat: number;
 }
 
-// ====== 自定义对话框 ======
-@CustomDialog
-struct NewProjectDialog {
-  controller: CustomDialogController;
-  onConfirm: (name: string) => void = () => {};
-
-  @State inputText: string = '';
-
-  build() {
-    Column({ space: 16 }) {
-      Text('新项目')
-        .fontSize(20)
-        .fontWeight(FontWeight.Medium)
-
-      TextInput({ placeholder: '请输入项目名称', text: this.inputText })
-        .width('80%')
-        .onChange((value: string) => {
-          this.inputText = value;
-        })
-
-      Row({ space: 20 }) {
-        Button('取消')
-          .onClick(() => {
-            this.controller.close();
-          })
-        Button('创建')
-          .type(ButtonType.Normal)
-          .backgroundColor('#007AFF')
-          .fontColor(Color.White)
-          .onClick(() => {
-            if (this.inputText.trim()) {
-              this.onConfirm(this.inputText.trim());
-              this.controller.close();
-            }
-          })
-      }
-    }
-    .padding(24)
-    .backgroundColor(Color.White)
-    .borderRadius(12)
-  }
-}
-
+// ====== 自定义对话框（不含新建项目对话框） ======
 @CustomDialog
 struct PropertiesDialog {
   controller?: CustomDialogController;
@@ -191,7 +148,7 @@ struct PropertiesDialog {
 
 @CustomDialog
 struct LoadingDialog {
-  controller: CustomDialogController;
+  controller?: CustomDialogController;
   @State message: string = '保存中...';
 
   build() {
@@ -200,21 +157,20 @@ struct LoadingDialog {
         LoadingProgress()
           .width(40)
           .height(40)
-          .color('#007AFF')
         Text(this.message)
           .fontSize(16)
           .margin({ left: 12 })
       }
       .padding(20)
     }
-    .backgroundColor(Color.White)
     .borderRadius(12)
+    .backgroundColor($r('sys.color.background_tertiary'))
   }
 }
 
 @CustomDialog
 struct ExportProgressDialog {
-  controller: CustomDialogController;
+  controller?: CustomDialogController;
   onCancel?: () => void;
 
   build() {
@@ -229,24 +185,24 @@ struct ExportProgressDialog {
       Button('取消')
         .onClick(() => {
           this.onCancel?.();
-          this.controller.close();
+          this.controller?.close();
         })
         .width(120)
         .buttonStyle(ButtonStyleMode.NORMAL)
     }
     .padding(24)
-    .backgroundColor(Color.White)
     .borderRadius(12)
+    .backgroundColor($r('sys.color.background_tertiary'))
   }
 }
 
+// ====== 主页面 ======
 @Entry
 @Component
 struct EditorPage {
   private loadingDialogController: CustomDialogController | null = null;
   private isSaving: boolean = false;
   private propertyDialogController: CustomDialogController | null = null;
-  private newProjectDialogController: CustomDialogController | null = null;
 
   @State projectId: string = '';
   @State projectName: string = '';
@@ -267,23 +223,66 @@ struct EditorPage {
   private exportCancelFlag: boolean = false;
   private exportDialogController: CustomDialogController | null = null;
 
+  // ====== 屏幕适配 ======
+  @State private isWideScreen: boolean = false;
+  private windowObj: window.Window | null = null;
+  private windowSizeCallback: () => void = () => {};
+
   // ====== 生命周期 ======
-  aboutToAppear() {
+  async aboutToAppear() {
+    // 初始化必要工具
+    TempFileManager.init(this.context);
+    ProjectManager.init(this.context);
+    ZapUtils.init(this.context);
+
     const params = router.getParams() as Record<string, string>;
     if (params && params['projectId']) {
+      // 加载已有项目
       this.projectId = params['projectId'];
       this.isNewProject = false;
       this.loadProject();
+    } else if (params && params['projectName']) {
+      // 新建项目（从项目列表传入名称）
+      this.projectName = params['projectName'];
+      this.projectId = Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+      this.isNewProject = true;
+      // frames 保持为空
     } else {
-      this.showNewProjectDialog();
+      // 无参数则返回项目列表
+      router.back();
+      return;
     }
-    TempFileManager.init(this.context);
+
     this.currentIndex = -1;
     this.updatePreview();
+
+    // 窗口大小监听
+    try {
+      this.windowObj = await window.getLastWindow(this.context);
+      this.updateScreenState();
+      this.windowSizeCallback = () => {
+        this.updateScreenState();
+      };
+      this.windowObj.on('windowSizeChange', this.windowSizeCallback);
+    } catch (err) {
+      console.error('获取窗口失败:', err);
+    }
   }
 
   aboutToDisappear() {
     this.saveProject();
+    if (this.windowObj) {
+      this.windowObj.off('windowSizeChange', this.windowSizeCallback);
+    }
+  }
+
+  private updateScreenState() {
+    if (!this.windowObj) return;
+    const rect = this.windowObj.getWindowProperties().windowRect;
+    const widthVP = px2vp(rect.width);
+    const heightVP = px2vp(rect.height);
+    const isLandscape = widthVP > heightVP;
+    this.isWideScreen = isLandscape && widthVP >= 600;
   }
 
   // ====== 基础方法 ======
@@ -427,7 +426,7 @@ struct EditorPage {
   showAbout(): void {
     AlertDialog.show({
       title: '关于',
-      message: '竹子定格动画\\nHarmonyOS NEXT 版本\\n\\n本程序基于 GPLv3 许可证开源。\\n使用的 FFmpeg 库遵循 GPLv3 许可证。\\n源代码可在 https://github.com/Zhuziexe/ZhuziAnimation_HMOS 获取。',
+      message: '竹子定格动画\nHarmonyOS NEXT 版本\n\n本程序基于 GPLv3 许可证开源。\n使用的 FFmpeg 库遵循 GPLv3 许可证。\n源代码可在 https://github.com/Zhuziexe/ZhuziAnimation_HMOS 获取。',
       confirm: { value: '确定', action: () => {} }
     });
   }
@@ -446,23 +445,6 @@ struct EditorPage {
       this.currentIndex = this.frames.length > 0 ? this.frames.length - 1 : -1;
       this.updatePreview();
     }
-  }
-
-  showNewProjectDialog() {
-    if (this.newProjectDialogController) {
-      this.newProjectDialogController.close();
-      this.newProjectDialogController = null;
-    }
-    this.newProjectDialogController = new CustomDialogController({
-      builder: NewProjectDialog({
-        onConfirm: (name: string) => {
-          this.projectName = name;
-          this.projectId = Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
-          this.isNewProject = true;
-        }
-      })
-    });
-    this.newProjectDialogController.open();
   }
 
   onBackPress() {
@@ -549,29 +531,50 @@ struct EditorPage {
     }
   }
 
-  // ====== 保存视频到相册（MediaAssetChangeRequest 方式） ======
+  // ====== 保存视频到相册（弹窗授权方式） ======
   private async saveVideoToGallery(filePath: string): Promise<void> {
-    const phHelper = photoAccessHelper.getPhotoAccessHelper(this.context);
-    // 1. 创建空视频资产，获得 URI
-    const assetUri = await phHelper.createAsset(photoAccessHelper.PhotoType.VIDEO, 'mp4');
-
-    // 2. 获取所有资产，找到刚创建的资产
-    const predicates = new dataSharePredicates.DataSharePredicates();
-    const fetchOptions: photoAccessHelper.FetchOptions = {
-      fetchColumns: [],
-      predicates: predicates
-    };
-    const fetchResult = await phHelper.getAssets(fetchOptions);
-    const allAssets = await fetchResult.getAllObjects();
-    const targetAsset = allAssets.find(asset => asset.uri === assetUri);
-    if (!targetAsset) {
-      throw new Error('无法找到刚创建的资产');
+    // 检查文件是否存在
+    try {
+      fileIo.statSync(filePath);
+    } catch {
+      throw new Error(`视频文件不存在: ${filePath}`);
     }
 
-    // 3. 使用 MediaAssetChangeRequest 添加视频资源
-    const assetChangeRequest = new photoAccessHelper.MediaAssetChangeRequest(targetAsset);
-    assetChangeRequest.addResource(photoAccessHelper.ResourceType.VIDEO_RESOURCE, 'file://' + filePath);
-    await phHelper.applyChanges(assetChangeRequest);
+    const phHelper = photoAccessHelper.getPhotoAccessHelper(this.context);
+    // 配置保存参数（标题避免特殊字符）
+    const timestamp = Date.now();
+    const configs: photoAccessHelper.PhotoCreationConfig[] = [
+      {
+        title: `Zhuzi_${timestamp}`,
+        fileNameExtension: 'mp4',
+        photoType: photoAccessHelper.PhotoType.VIDEO,
+        subtype: photoAccessHelper.PhotoSubtype.DEFAULT,
+      }
+    ];
+
+    // 弹出授权对话框（会阻塞直到用户操作）
+    let destUris: string[];
+    try {
+      destUris = await phHelper.showAssetsCreationDialog([filePath], configs);
+    } catch (err) {
+      // 如果用户取消或发生错误，抛出明确异常
+      if (err.code === 202) { // 常见取消错误码
+        throw new Error('用户取消保存');
+      }
+      throw new Error(`弹窗授权失败: ${err.message || String(err)}`);
+    }
+
+    if (!destUris || destUris.length === 0) {
+      throw new Error('用户取消保存');
+    }
+
+    const destUri = destUris[0];
+    // 复制文件到目标URI
+    const srcFile = fileIo.openSync(filePath, fileIo.OpenMode.READ_ONLY);
+    const destFile = fileIo.openSync(destUri, fileIo.OpenMode.WRITE_ONLY);
+    fileIo.copyFileSync(srcFile.fd, destFile.fd);
+    fileIo.closeSync(srcFile);
+    fileIo.closeSync(destFile);
   }
 
   async startExport() {
@@ -581,21 +584,10 @@ struct EditorPage {
     }
     if (this.isExporting) return;
 
-    const atManager = abilityAccessCtrl.createAtManager();
-    const permissions: Array<Permissions> = [
-      'ohos.permission.WRITE_IMAGEVIDEO',
-      'ohos.permission.READ_IMAGEVIDEO'
-    ];
-    try {
-      await atManager.requestPermissionsFromUser(this.context, permissions);
-    } catch (err) {
-      promptAction.showToast({ message: '需要相册权限才能导出' });
-      return;
-    }
-
     this.exportCancelFlag = false;
     this.isExporting = true;
 
+    // 显示导出进度对话框
     this.exportDialogController = new CustomDialogController({
       builder: ExportProgressDialog({
         onCancel: () => {
@@ -609,12 +601,15 @@ struct EditorPage {
 
     try {
       await this.doExport();
+      // 导出完成，但保存到相册可能被用户取消，由 saveVideoToGallery 抛出异常
+      promptAction.showToast({ message: '视频已保存到相册' });
     } catch (e) {
-      if (e instanceof Error && e.message === '导出取消') {
-        promptAction.showToast({ message: '已取消导出' });
+      if (e instanceof Error && e.message.includes('取消')) {
+        promptAction.showToast({ message: '已取消保存' });
       } else {
-        console.error('导出失败', e);
-        promptAction.showToast({ message: '导出失败，请重试' });
+        console.error('导出失败:', e);
+        // 显示具体错误信息
+        promptAction.showToast({ message: `导出失败: ${e.message || '未知错误'}` });
       }
     } finally {
       this.isExporting = false;
@@ -628,9 +623,7 @@ struct EditorPage {
   private async doExport(): Promise<void> {
     const fpsRepeat = this.getTargetFpsAndRepeat();
     const targetFps = fpsRepeat.targetFps;
-    const repeat = fpsRepeat.repeat;
 
-    // 创建临时目录并导出帧
     const tempDir = this.context.filesDir + '/ffmpeg_frames/';
     try {
       if (fileIo.accessSync(tempDir)) {
@@ -641,6 +634,7 @@ struct EditorPage {
       console.warn('临时目录创建:', e);
     }
 
+    // 导出帧
     for (let i = 0; i < this.frames.length; i++) {
       if (this.exportCancelFlag) {
         this.deleteDirectoryRecursive(tempDir);
@@ -685,7 +679,6 @@ struct EditorPage {
     const commandString = commandArgs.join(' ');
     console.info(`FFmpeg 命令: ${commandString}`);
 
-    // ====== 使用 @tyousan/ffmpeg 的 executeCommandSync ======
     try {
       const result: CommandSyncResult = executeCommandSync(commandString);
       if (result.evenType !== 'onSuccess') {
@@ -709,11 +702,9 @@ struct EditorPage {
       throw new Error('导出取消');
     }
 
-    // 保存到相册
+    // 保存到相册（弹窗授权）
     await this.saveVideoToGallery(outputPath);
     try { fileIo.unlinkSync(outputPath); } catch (e) {}
-
-    promptAction.showToast({ message: '已保存到相册' });
   }
 
   private deleteDirectoryRecursive(path: string): void {
@@ -738,78 +729,127 @@ struct EditorPage {
   // ====================== UI 构建 =========================
   // ========================================================
 
+  @Builder
+  buildTopBar() {
+    Row() {
+      Button() {
+        SymbolGlyph($r('sys.symbol.arrow_left'))
+          .fontSize(24)
+          .width(24)
+          .height(24)
+          .fontColor([$r('sys.color.font_primary')])
+      }
+      .onClick(() => {
+        this.handleBack();
+      })
+      .height(32)
+      .width(32)
+      .buttonStyle(ButtonStyleMode.TEXTUAL)
+
+      Text('编辑器')
+        .layoutWeight(1)
+        .fontSize(18)
+        .fontColor($r('sys.color.font_primary'))
+        .fontWeight(FontWeight.Medium)
+        .textAlign(TextAlign.Center)
+
+      Button() {
+        SymbolGlyph($r('sys.symbol.more'))
+          .width(24).height(24)
+          .fontColor([$r('sys.color.font_primary')])
+
+      }
+      .buttonStyle(ButtonStyleMode.TEXTUAL)
+      .bindMenu([
+        { value: '属性', action: () => this.showPropertyDialog() },
+        { value: '导出', action: () => this.startExport() },
+        { value: '关于', action: () => this.showAbout() }
+      ])
+      .width(32)
+      .height(32)
+    }
+    .width('100%')
+    .height(56)
+    .padding({ left: 16, right: 16 })
+    .backgroundColor($r('sys.color.background_primary'))
+    .shadow({ radius: 2, color: '#1A000000', offsetY: 1 })
+  }
+
   build() {
     Column() {
-      Row() {
-        Button() {
-          SymbolGlyph($r('sys.symbol.arrow_left'))
-            .fontSize(24)
-            .width(24)
-            .height(24)
-        }
-        .onClick(() => {
-          this.handleBack();
-        })
-        .height(32)
-        .width(32)
-        .buttonStyle(ButtonStyleMode.TEXTUAL)
+      this.buildTopBar();
 
-        Text('编辑器')
-          .layoutWeight(1)
-          .fontSize(18)
-          .fontWeight(FontWeight.Medium)
-          .textAlign(TextAlign.Center)
-
-        Button() {
-          Image($r('sys.media.ohos_ic_public_more'))
-            .width(24).height(24)
-        }
-        .buttonStyle(ButtonStyleMode.TEXTUAL)
-        .bindMenu([
-          { value: '属性', action: () => this.showPropertyDialog() },
-          { value: '导出', action: () => this.startExport() },
-          { value: '关于', action: () => this.showAbout() }
-        ])
-        .width(32)
-        .height(32)
-      }
-      .width('100%')
-      .height(56)
-      .padding({ left: 16, right: 16 })
-      .backgroundColor('#FFFFFF')
-      .shadow({ radius: 2, color: '#1A000000', offsetY: 1 })
-
-      Row() {
-        FrameList({
-          frames: this.frames,
-          currentIndex: this.currentIndex,
-          onSelect: (idx: number) => { this.currentIndex = idx; this.updatePreview(); },
-          onMove: (from: number, to: number) => this.moveFrame(from, to),
-          onDelete: (idx: number) => this.deleteFrame(idx),
-          onAdd: () => this.addFrames()
-        })
-          .width(300)
-          .height('100%')
-
-        Column() {
-          Preview({ imageUri: this.previewUri })
-            .layoutWeight(1)
-          ControlBar({
-            isPlaying: this.isPlaying,
-            progress: this.currentIndex,
-            max: this.frames.length - 1,
-            onPlayToggle: () => this.togglePlay(),
-            onProgressChange: (pos: number) => this.onProgressChange(pos)
+      if (this.isWideScreen) {
+        // 平板横屏：左右布局
+        Row() {
+          FrameList({
+            frames: this.frames,
+            currentIndex: this.currentIndex,
+            onSelect: (idx: number) => {
+              this.currentIndex = idx;
+              this.updatePreview();
+            },
+            onMove: (from: number, to: number) => this.moveFrame(from, to),
+            onDelete: (idx: number) => this.deleteFrame(idx),
+            onAdd: () => this.addFrames()
           })
-            .height(80)
+            .width(300)
+            .height('100%');
+
+          Column() {
+            Preview({ imageUri: this.previewUri })
+              .layoutWeight(1);
+            ControlBar({
+              isPlaying: this.isPlaying,
+              progress: this.currentIndex,
+              max: this.frames.length - 1,
+              onPlayToggle: () => this.togglePlay(),
+              onProgressChange: (pos: number) => this.onProgressChange(pos)
+            })
+              .height(80);
+          }
+          .layoutWeight(1)
+          .height('100%');
         }
-        .layoutWeight(1)
-        .height('100%')
+        .layoutWeight(1);
+      } else {
+        // 手机或平板竖屏：上下布局
+        Column() {
+          Column() {
+            Preview({ imageUri: this.previewUri })
+              .layoutWeight(1);
+            ControlBar({
+              isPlaying: this.isPlaying,
+              progress: this.currentIndex,
+              max: this.frames.length - 1,
+              onPlayToggle: () => this.togglePlay(),
+              onProgressChange: (pos: number) => this.onProgressChange(pos)
+            })
+              .height(80);
+          }
+          .layoutWeight(1)
+          .width('100%');
+
+          FrameList({
+            frames: this.frames,
+            currentIndex: this.currentIndex,
+            onSelect: (idx: number) => {
+              this.currentIndex = idx;
+              this.updatePreview();
+            },
+            onMove: (from: number, to: number) => this.moveFrame(from, to),
+            onDelete: (idx: number) => this.deleteFrame(idx),
+            onAdd: () => this.addFrames()
+          })
+            .height('50%')
+            .width('100%');
+        }
+        .layoutWeight(1);
       }
-      .layoutWeight(1)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F5F5F5')
+    .backgroundColor($r('sys.color.background_tertiary'))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 }

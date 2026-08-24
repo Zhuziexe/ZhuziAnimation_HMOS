@@ -18,7 +18,7 @@ export struct FrameList {
               Text(`${index + 1}`)
                 .width(30)
                 .fontSize(14)
-                .fontColor('#666')
+                .fontColor($r('sys.color.font_primary'))
                 .textAlign(TextAlign.Center)
 
               if (frame.uri) {
@@ -60,7 +60,7 @@ export struct FrameList {
             .width('100%')
             .height(72)
             .padding({ left: 8, right: 8 })
-            .backgroundColor(index === this.currentIndex ? '#C8DFFF' : '#FFFFFF')
+            .backgroundColor(index === this.currentIndex ? $r('app.color.selected_frame') : $r('sys.color.background_tertiary'))
             .borderRadius(4)
             .onClick(() => this.onSelect(index))
           }
@@ -72,12 +72,12 @@ export struct FrameList {
       Button('添加帧')
         .width('100%')
         .height(48)
-        .backgroundColor('#007AFF')
+        .backgroundColor($r('sys.color.brand'))
         .fontColor(Color.White)
         .onClick(() => this.onAdd())
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F0F0F0')
+    .backgroundColor($r('sys.color.background_tertiary'))
   }
 }
