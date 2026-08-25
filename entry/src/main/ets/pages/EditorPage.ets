@@ -16,6 +16,7 @@ import { fileIo } from '@kit.CoreFileKit';
 import { executeCommandSync, CommandSyncResult } from '@tyousan/ffmpeg';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import window from '@ohos.window';
+import { showAbout } from '../common/ShowAbout';
 
 // ====== 类型定义 ======
 interface TargetSize {
@@ -108,7 +109,7 @@ struct PropertiesDialog {
             this.selectedIndexFPS = index;
             this.selectedTextFPS = value;
           })
-          .width('70%')
+          .layoutWeight(1)
           .height(50)
       }
       .width('100%')
@@ -123,7 +124,7 @@ struct PropertiesDialog {
             this.selectedIndexRatio = index;
             this.selectedTextRatio = value;
           })
-          .width('70%')
+          .layoutWeight(1)
           .height(50)
           .enabled(this.enabledRatio)
       }
@@ -133,13 +134,13 @@ struct PropertiesDialog {
         Button('取消')
           .buttonStyle(ButtonStyleMode.NORMAL)
           .onClick(() => { this.controller?.close(); })
-          .width(128)
+          .layoutWeight(1)
         Button('确定')
           .onClick(() => {
             this.onConfirm?.(this.getSelectedFPS(), this.getSelectedRatio());
             this.controller?.close();
           })
-          .width(128)
+          .layoutWeight(1)
       }
     }
     .padding(20)
@@ -178,10 +179,9 @@ struct ExportProgressDialog {
       LoadingProgress()
         .width(48)
         .height(48)
-        .color('#007AFF')
       Text('导出中...')
         .fontSize(16)
-        .fontColor(Color.Black)
+        .fontColor($r('sys.color.font_primary'))
       Button('取消')
         .onClick(() => {
           this.onCancel?.();
@@ -423,13 +423,7 @@ struct EditorPage {
     this.propertyDialogController.open();
   }
 
-  showAbout(): void {
-    AlertDialog.show({
-      title: '关于',
-      message: '竹子定格动画\nHarmonyOS NEXT 版本\n\n本程序基于 GPLv3 许可证开源。\n使用的 FFmpeg 库遵循 GPLv3 许可证。\n源代码可在 https://github.com/Zhuziexe/ZhuziAnimation_HMOS 获取。',
-      confirm: { value: '确定', action: () => {} }
-    });
-  }
+
 
   async loadProject() {
     const projects = await ProjectManager.getProjects();
@@ -742,8 +736,8 @@ struct EditorPage {
       .onClick(() => {
         this.handleBack();
       })
-      .height(32)
-      .width(32)
+      .height(40)
+      .width(40)
       .buttonStyle(ButtonStyleMode.TEXTUAL)
 
       Text('编辑器')
@@ -754,7 +748,8 @@ struct EditorPage {
         .textAlign(TextAlign.Center)
 
       Button() {
-        SymbolGlyph($r('sys.symbol.more'))
+        SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
+          .fontSize(24)
           .width(24).height(24)
           .fontColor([$r('sys.color.font_primary')])
 
@@ -763,10 +758,10 @@ struct EditorPage {
       .bindMenu([
         { value: '属性', action: () => this.showPropertyDialog() },
         { value: '导出', action: () => this.startExport() },
-        { value: '关于', action: () => this.showAbout() }
+        { value: '关于', action: () => showAbout() }
       ])
-      .width(32)
-      .height(32)
+      .width(40)
+      .height(40)
     }
     .width('100%')
     .height(56)

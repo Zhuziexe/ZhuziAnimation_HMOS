@@ -17,7 +17,7 @@ export struct FrameList {
             Row() {
               Text(`${index + 1}`)
                 .width(30)
-                .fontSize(14)
+                .fontSize(16)
                 .fontColor($r('sys.color.font_primary'))
                 .textAlign(TextAlign.Center)
 
@@ -37,20 +37,15 @@ export struct FrameList {
               }
 
               Button() {
-                SymbolGlyph($r('sys.symbol.plus')).fontSize(16)
+                SymbolGlyph($r('sys.symbol.dot_grid_1x2'))
+                  .fontSize(28)
+                  .width(28)
+                  .height(28)
+                  .fontColor([$r('sys.color.font_primary')])
               }
-              .width(28)
-              .height(28)
-              .backgroundColor('#E8E8E8')
-              .borderRadius(14)
-              .onClick(() => {})
-              .margin({ right: 4 })
-
-              Button() {
-                Image($r('app.media.ic_more')).width(20).height(20)
-              }
-              .type(ButtonType.Normal)
-              .backgroundColor(Color.Transparent)
+              .width(32)
+              .height(32)
+              .buttonStyle(ButtonStyleMode.TEXTUAL)
               .bindMenu([
                 { value: '上移', action: () => { if (index > 0) this.onMove(index, index - 1); } },
                 { value: '下移', action: () => { if (index < this.frames.length - 1) this.onMove(index, index + 1); } },
