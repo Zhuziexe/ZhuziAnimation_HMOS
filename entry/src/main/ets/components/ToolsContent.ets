@@ -1,4 +1,43 @@
 import { showAbout } from '../common/ShowAbout'
+import { getVideoInfo } from '../common/VideoUtils'
+import { BusinessError } from '@kit.BasicServicesKit';
+import { photoAccessHelper } from '@kit.MediaLibraryKit';
+import { common } from '@kit.AbilityKit';
+import { router } from '@kit.ArkUI';
+
+async function doGetVideoInfo(ctx: common.UIAbilityContext) {
+  try {
+    let PhotoSelectOptions = new photoAccessHelper.PhotoSelectOptions();
+    PhotoSelectOptions.MIMEType = photoAccessHelper.PhotoViewMIMETypes.VIDEO_TYPE;
+    PhotoSelectOptions.maxSelectNumber = 1;
+
+    let photoPicker = new photoAccessHelper.PhotoViewPicker();
+    const PhotoSelectResult = await photoPicker.select(PhotoSelectOptions);
+    if (PhotoSelectResult.photoUris.length === 1) {
+      const uri = PhotoSelectResult.photoUris[0];
+      console.info('选中视频 URI: ' + uri);
+
+      // 获取视频信息
+      const videoInfo = await getVideoInfo(uri, ctx);
+
+      console.info(JSON.stringify(videoInfo));
+
+      if (videoInfo) {
+        // 跳转到 VideoInfoPage，通过 params 传递数据（转成 JSON 字符串）
+        router.pushUrl({
+          url: 'pages/VideoInfoPage', // 根据实际路径修改
+          params: { videoInfo: JSON.stringify(videoInfo) }
+        });
+      } else {
+        // 提示获取失败
+        console.warn('获取视频信息失败');
+      }
+    }
+  } catch (error) {
+    let err: BusinessError = error as BusinessError;
+    console.error(`选择或获取视频失败: ${err.code}, ${err.message}`);
+  }
+}
 
 @Component
 export struct ToolsContent{
@@ -15,7 +54,7 @@ export struct ToolsContent{
                 .fontColor([$r('sys.color.font_primary')])
                 .margin({ right: 16 })
 
-              Text('敬请期待')
+              Text('获取视频属性')
                 .fontSize(16)
                 .fontColor($r('sys.color.font_primary'))
                 .textAlign(TextAlign.Start)
@@ -30,7 +69,7 @@ export struct ToolsContent{
             .height(56)
             .borderRadius(16)
             .onClick(() => {
-              // TODO: 完成查看视频属性
+              doGetVideoInfo(this.getUIContext().getHostContext() as common.UIAbilityContext);
             })
             .padding({left:16,right:4})
             .stateStyles({
@@ -50,7 +89,7 @@ export struct ToolsContent{
                 .fontSize(28)
                 .fontColor([$r('sys.color.font_primary')])
                 .margin({ right: 16 })
-              Text('另一个按钮')
+              Text('敬请期待')
                 .fontSize(16)
                 .fontColor($r('sys.color.font_primary'))
                 .textAlign(TextAlign.Start)
@@ -65,7 +104,7 @@ export struct ToolsContent{
             .height(56)
             .borderRadius(16)
             .onClick(() => {
-              // TODO: 视频加水印
+              // TODO: 敬请期待
             })
             .padding({left:16,right:4})
             .stateStyles({

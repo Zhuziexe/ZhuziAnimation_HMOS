@@ -1,6 +1,7 @@
 {
   "src": [
     "pages/ProjectListPage",
-    "pages/EditorPage"
+    "pages/EditorPage",
+    "pages/VideoInfoPage"
   ]
 }
