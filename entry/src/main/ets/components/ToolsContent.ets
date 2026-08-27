@@ -3,7 +3,7 @@ import { getVideoInfo } from '../common/VideoUtils'
 import { BusinessError } from '@kit.BasicServicesKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { common } from '@kit.AbilityKit';
-import { router } from '@kit.ArkUI';
+import { promptAction, router } from '@kit.ArkUI';
 
 async function doGetVideoInfo(ctx: common.UIAbilityContext) {
   try {
@@ -31,6 +31,7 @@ async function doGetVideoInfo(ctx: common.UIAbilityContext) {
       } else {
         // 提示获取失败
         console.warn('获取视频信息失败');
+        promptAction.showToast({ message:"获取视频信息失败" });
       }
     }
   } catch (error) {

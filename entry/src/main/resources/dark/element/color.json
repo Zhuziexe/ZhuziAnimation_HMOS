@@ -9,16 +9,20 @@
       "value": "#4A4A4A"
     },
     {
-      "name": "titlebar_gradient_end",
-      "value": "#00000000"
-    },
-    {
       "name": "listitem",
       "value": "#222222"
     },
     {
       "name": "listitem_pressed",
       "value": "#444444"
+    },
+    {
+      "name": "icon_button",
+      "value": "#44ffffff"
+    },
+    {
+      "name": "titlebar_gradient_end",
+      "value": "#00000000"
     }
   ]
 }

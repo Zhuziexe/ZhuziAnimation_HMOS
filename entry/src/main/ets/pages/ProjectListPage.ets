@@ -564,7 +564,12 @@ struct ProjectListPage {
 
               Button(this.sortBy === 'time' ? '按时间' : '按名称')
                 .fontSize(14)
-                .backgroundColor($r('sys.color.background_tertiary'))
+                .backgroundColor($r('app.color.icon_button'))
+                .backgroundBlurStyle(BlurStyle.Thin, { colorMode: ThemeColorMode.SYSTEM })
+                .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
+                .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
+                .fontColor(Color.White)
+                .fontSize(16)
                 .fontColor($r('sys.color.font_primary'))
                 .onClick(() => {
                   this.sortBy = this.sortBy === 'time' ? 'name' : 'time';
@@ -579,7 +584,10 @@ struct ProjectListPage {
               .width(40)
               .height(40)
               .borderRadius(20)
-              .backgroundColor($r('sys.color.background_tertiary'))
+              .backgroundColor($r('app.color.icon_button'))
+              .backgroundBlurStyle(BlurStyle.Thin, { colorMode: ThemeColorMode.SYSTEM })
+              .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
+              .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
               .margin({ left: 8 })
               .bindMenu([
                 {value:"导入 ZAP 文件",action:() => this.importZapProject()},
@@ -594,7 +602,9 @@ struct ProjectListPage {
               .width(40)
               .height(40)
               .borderRadius(20)
-              .backgroundColor($r('sys.color.background_emphasize'))
+              .backgroundColor($r('sys.color.brand'))
+              .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
+              .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
               .margin({ left: 8 })
               .onClick(() => this.createProject())
             }

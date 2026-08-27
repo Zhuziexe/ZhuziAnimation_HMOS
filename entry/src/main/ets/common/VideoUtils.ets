@@ -63,8 +63,9 @@ export async function getVideoInfo(fileURI: string, ctx: common.UIAbilityContext
         path: realLocalPath,
         success: (a: MediaInformation) => {
           console.info('FFMPEG成功');
-          // 注意：MediaInformation 可能并非 FFprobeResult，需要做映射，这里假设 a 已是 FFprobeResult
-          resolve(a as FFprobeResult);
+          let b = a as FFprobeResult;
+          b.filename = fileURI;
+          resolve(b);
         },
         fail: (error) => {
           console.warn('FFMPEG错误: ' + JSON.stringify(error));
