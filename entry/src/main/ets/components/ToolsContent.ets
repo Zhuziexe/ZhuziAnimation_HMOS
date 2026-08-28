@@ -1,10 +1,226 @@
-import { showAbout } from '../common/ShowAbout'
-import { getVideoInfo } from '../common/VideoUtils'
+import { showAbout } from '../common/ShowAbout';
+import { getVideoInfo, VideoToGIF } from '../common/VideoUtils';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { common } from '@kit.AbilityKit';
 import { promptAction, router } from '@kit.ArkUI';
+import taskpool from '@ohos.taskpool';
+import { fileIo as fs } from '@kit.CoreFileKit';
 
+// ---------- 用于 TaskPool 的并发函数 ----------
+@Concurrent
+async function convertVideoTask(
+  videoUri: string,
+  context: common.UIAbilityContext,
+  fps: number,
+  width: number,
+  maxLength: number,
+  twoSteps: boolean
+): Promise<string | null> {
+  return await VideoToGIF(videoUri, context, fps, width, maxLength, twoSteps);
+}
+
+// ---------- 参数设置弹窗 ----------
+@CustomDialog
+struct GifSettingsDialog {
+  controller: CustomDialogController;
+  videoUri: string = '';
+  context: common.UIAbilityContext = {} as common.UIAbilityContext;
+
+  @State fps: number = 12;
+  @State targetWidth: number = 480;
+  @State maxLength: number = 5;
+  @State useTwoSteps: boolean = true;
+
+  private fpsOptions: SelectOption[] = [
+    { value: '10' },
+    { value: '12' },
+    { value: '15' }
+  ];
+  private widthOptions: SelectOption[] = [
+    { value: '360' },
+    { value: '480' },
+    { value: '640' },
+    { value: '720' }
+  ];
+
+  private progressDialogController: CustomDialogController | null = null;
+  private isCancelled: boolean = false;
+
+  build() {
+    Column({space:12}) {
+      Text('视频转GIF')
+        .fontSize(20)
+        .fontWeight(FontWeight.Medium)
+
+      Row() {
+        Text('帧率')
+          .width(80)
+        Select(this.fpsOptions)
+          .value(this.fpsOptions[1].value)
+          .selected(1)
+          .onSelect((index: number) => {
+            this.fps = parseInt(this.fpsOptions[index].value as string, 10);
+          })
+          .layoutWeight(1)
+      }
+
+      Row() {
+        Text('宽度')
+          .width(80)
+        Select(this.widthOptions)
+          .value(this.widthOptions[1].value)
+          .selected(1)
+          .onSelect((index: number) => {
+            this.targetWidth = parseInt(this.widthOptions[index].value as string, 10);
+          })
+          .layoutWeight(1)
+      }
+
+      Row() {
+        Text('最高时长')
+          .width(80)
+        Slider({
+          min: 1,
+          max: 10,
+          step: 0.5,
+          value: this.maxLength
+        })
+          .onChange((value: number) => { this.maxLength = value; })
+          .layoutWeight(1)
+        Text(`${this.maxLength.toFixed(1)}秒`)
+          .width(60)
+          .textAlign(TextAlign.End)
+      }
+
+      Row() {
+        Text('两步法调色盘')
+          .layoutWeight(1)
+        Toggle({ type: ToggleType.Switch, isOn: this.useTwoSteps })
+          .onChange((isOn: boolean) => { this.useTwoSteps = isOn; })
+      }
+
+      Row({ space: 20 }) {
+        Button('取消')
+          .onClick(() => this.controller.close())
+          .buttonStyle(ButtonStyleMode.NORMAL)
+          .layoutWeight(1)
+
+        Button('转换')
+          .onClick(() => {
+            this.controller.close();
+            this.startConversion();
+          })
+          .layoutWeight(1)
+      }
+      .width('100%')
+    }
+    .padding(20)
+    .borderRadius(12)
+  }
+
+  private startConversion() {
+    this.progressDialogController = new CustomDialogController({
+      builder: GifProgressDialog({
+        cancelCallback: () => {
+          this.isCancelled = true;
+        }
+      })
+    });
+    this.progressDialogController.open();
+
+    taskpool.execute(
+      convertVideoTask,
+      this.videoUri,
+      this.context,
+      this.fps,
+      this.targetWidth,
+      this.maxLength,
+      this.useTwoSteps
+    ).then((value: Object) => {
+      const resultPath = value as string | null;
+      this.progressDialogController?.close();
+      if (this.isCancelled) {
+        if (resultPath) {
+          try { fs.unlinkSync(resultPath); } catch {}
+        }
+        promptAction.showToast({ message: '已取消转换' });
+        return;
+      }
+      if (resultPath) {
+        this.saveToGallery(resultPath);
+      } else {
+        promptAction.showToast({ message: '转换失败' });
+      }
+    }).catch((err: Error) => {
+      this.progressDialogController?.close();
+      promptAction.showToast({ message: '转换异常: ' + err.message });
+    });
+  }
+
+  private async saveToGallery(filePath: string) {
+    try {
+      const phHelper = photoAccessHelper.getPhotoAccessHelper(this.context);
+      const timestamp = Date.now();
+      const configs: photoAccessHelper.PhotoCreationConfig[] = [
+        {
+          title: `GIF_${timestamp}`,
+          fileNameExtension: 'gif',
+          photoType: photoAccessHelper.PhotoType.IMAGE,
+          subtype: photoAccessHelper.PhotoSubtype.DEFAULT,
+        }
+      ];
+      const destUris: string[] = await phHelper.showAssetsCreationDialog([filePath], configs);
+      if (!destUris || destUris.length === 0) {
+        throw new Error('用户取消保存');
+      }
+      const destUri = destUris[0];
+      const srcFile = fs.openSync(filePath, fs.OpenMode.READ_ONLY);
+      const destFile = fs.openSync(destUri, fs.OpenMode.WRITE_ONLY);
+      fs.copyFileSync(srcFile.fd, destFile.fd);
+      fs.closeSync(srcFile);
+      fs.closeSync(destFile);
+      promptAction.showToast({ message: 'GIF已保存到相册' });
+    } catch (err) {
+      console.error('保存到图库失败:', err);
+      promptAction.showToast({ message: '保存失败: ' + (err.message || '未知错误') });
+    } finally {
+      try { fs.unlinkSync(filePath); } catch {}
+    }
+  }
+}
+
+// ---------- 转换进度弹窗 ----------
+@CustomDialog
+struct GifProgressDialog {
+  controller: CustomDialogController;
+  cancelCallback: () => void = () => {};
+
+  build() {
+    Column({space:16}) {
+      LoadingProgress()
+        .width(48)
+        .height(48)
+      Text('转换中...')
+        .fontSize(18)
+        .fontColor($r('sys.color.font_primary'))
+      Text('转换为GIF可能需要一段时间。')
+        .fontSize(14)
+        .fontColor($r('sys.color.font_secondary'))
+      Button('取消')
+        .buttonStyle(ButtonStyleMode.TEXTUAL)
+        .onClick(() => {
+          this.cancelCallback();
+          this.controller.close();
+        })
+        .width('100%')
+    }
+    .padding(24)
+    .borderRadius(12)
+  }
+}
+
+// ---------- 原有函数：选择并获取视频信息 ----------
 async function doGetVideoInfo(ctx: common.UIAbilityContext) {
   try {
     let PhotoSelectOptions = new photoAccessHelper.PhotoSelectOptions();
@@ -17,21 +233,16 @@ async function doGetVideoInfo(ctx: common.UIAbilityContext) {
       const uri = PhotoSelectResult.photoUris[0];
       console.info('选中视频 URI: ' + uri);
 
-      // 获取视频信息
       const videoInfo = await getVideoInfo(uri, ctx);
-
       console.info(JSON.stringify(videoInfo));
 
       if (videoInfo) {
-        // 跳转到 VideoInfoPage，通过 params 传递数据（转成 JSON 字符串）
         router.pushUrl({
-          url: 'pages/VideoInfoPage', // 根据实际路径修改
+          url: 'pages/VideoInfoPage',
           params: { videoInfo: JSON.stringify(videoInfo) }
         });
       } else {
-        // 提示获取失败
-        console.warn('获取视频信息失败');
-        promptAction.showToast({ message:"获取视频信息失败" });
+        promptAction.showToast({ message: "获取视频信息失败" });
       }
     }
   } catch (error) {
@@ -40,21 +251,49 @@ async function doGetVideoInfo(ctx: common.UIAbilityContext) {
   }
 }
 
+// ---------- 主组件 ToolsContent ----------
 @Component
-export struct ToolsContent{
-  build(){
+export struct ToolsContent {
+  private settingsDialogController: CustomDialogController | null = null;
+
+  private async pickVideoAndShowSettings() {
+    try {
+      const PhotoSelectOptions = new photoAccessHelper.PhotoSelectOptions();
+      PhotoSelectOptions.MIMEType = photoAccessHelper.PhotoViewMIMETypes.VIDEO_TYPE;
+      PhotoSelectOptions.maxSelectNumber = 1;
+      const photoPicker = new photoAccessHelper.PhotoViewPicker();
+      const result = await photoPicker.select(PhotoSelectOptions);
+      if (result.photoUris.length === 0) {
+        promptAction.showToast({ message: '未选择视频' });
+        return;
+      }
+      const uri = result.photoUris[0];
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      this.settingsDialogController = new CustomDialogController({
+        builder: GifSettingsDialog({
+          videoUri: uri,
+          context: ctx
+        })
+      });
+      this.settingsDialogController.open();
+    } catch (err) {
+      console.error('选择视频失败:', err);
+      promptAction.showToast({ message: '选择视频失败' });
+    }
+  }
+
+  build() {
     Stack() {
-      List({space:12}) {
+      List({ space: 12 }) {
         ListItem() {
-          Column(){
+          Column() {
             Row() {
-              SymbolGlyph($r('sys.symbol.list_square_bill'))
+              SymbolGlyph($r('sys.symbol.list_bullet'))
                 .width(28)
                 .height(28)
                 .fontSize(28)
                 .fontColor([$r('sys.color.font_primary')])
                 .margin({ right: 16 })
-
               Text('获取视频属性')
                 .fontSize(16)
                 .fontColor($r('sys.color.font_primary'))
@@ -72,25 +311,20 @@ export struct ToolsContent{
             .onClick(() => {
               doGetVideoInfo(this.getUIContext().getHostContext() as common.UIAbilityContext);
             })
-            .padding({left:16,right:4})
+            .padding({ left: 16, right: 4 })
             .stateStyles({
-              pressed: {
-                .backgroundColor($r('app.color.listitem_pressed'))
-              },
-              normal:{
-                .backgroundColor($r('app.color.listitem'))
-              }
+              pressed: { .backgroundColor($r('app.color.listitem_pressed')) },
+              normal: { .backgroundColor($r('app.color.listitem')) }
             })
-            Divider()
-              .padding({left:8,right:8})
+            Divider().padding({ left: 8, right: 8 })
             Row() {
-              SymbolGlyph($r('sys.symbol.watermark_font'))
+              SymbolGlyph($r('sys.symbol.gif_video'))
                 .width(28)
                 .height(28)
                 .fontSize(28)
                 .fontColor([$r('sys.color.font_primary')])
                 .margin({ right: 16 })
-              Text('敬请期待')
+              Text('视频转GIF')
                 .fontSize(16)
                 .fontColor($r('sys.color.font_primary'))
                 .textAlign(TextAlign.Start)
@@ -105,25 +339,22 @@ export struct ToolsContent{
             .height(56)
             .borderRadius(16)
             .onClick(() => {
-              // TODO: 敬请期待
+              this.pickVideoAndShowSettings();
             })
-            .padding({left:16,right:4})
+            .padding({ left: 16, right: 4 })
             .stateStyles({
-              pressed: {
-                .backgroundColor($r('app.color.listitem_pressed'))
-              },
-              normal:{
-                .backgroundColor($r('app.color.listitem'))
-              }
+              pressed: { .backgroundColor($r('app.color.listitem_pressed')) },
+              normal: { .backgroundColor($r('app.color.listitem')) }
             })
           }
           .backgroundColor($r('app.color.listitem'))
           .borderRadius(16)
           .padding(4)
         }
-        .padding({left:12,right:12})
+        .padding({ left: 12, right: 12 })
+
         ListItem() {
-          Column(){
+          Column() {
             Row() {
               SymbolGlyph($r('sys.symbol.info_circle'))
                 .width(28)
@@ -131,7 +362,6 @@ export struct ToolsContent{
                 .fontSize(28)
                 .fontColor([$r('sys.color.font_primary')])
                 .margin({ right: 16 })
-
               Text('关于')
                 .fontSize(16)
                 .fontColor($r('sys.color.font_primary'))
@@ -146,24 +376,18 @@ export struct ToolsContent{
             .width('100%')
             .height(56)
             .borderRadius(16)
-            .onClick(() => {
-              showAbout()
-            })
-            .padding({left:16,right:4})
+            .onClick(() => { showAbout() })
+            .padding({ left: 16, right: 4 })
             .stateStyles({
-              pressed: {
-                .backgroundColor($r('app.color.listitem_pressed'))
-              },
-              normal:{
-                .backgroundColor($r('app.color.listitem'))
-              }
+              pressed: { .backgroundColor($r('app.color.listitem_pressed')) },
+              normal: { .backgroundColor($r('app.color.listitem')) }
             })
           }
           .backgroundColor($r('app.color.listitem'))
           .borderRadius(16)
           .padding(4)
         }
-        .padding({left:12,right:12})
+        .padding({ left: 12, right: 12 })
       }
       .width('100%')
       .align(Alignment.Top)

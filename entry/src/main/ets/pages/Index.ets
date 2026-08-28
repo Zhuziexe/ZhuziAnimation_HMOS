@@ -189,7 +189,7 @@ struct RenameProjectDialog {
 
 @Entry
 @Component
-struct ProjectListPage {
+struct Index {
   @State projects: ProjectMeta[] = [];
   @State sortBy: 'name' | 'time' = 'time';
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -233,9 +233,6 @@ struct ProjectListPage {
     })
   }
 
-  /**
-   * 显示重命名对话框
-   */
   showRenameDialog(project: ProjectMeta, index: number) {
     if (this.renameDialogController) {
       this.renameDialogController.close();
@@ -255,9 +252,6 @@ struct ProjectListPage {
     this.renameDialogController.open();
   }
 
-  /**
-   * 执行重命名
-   */
   async doRename(project: ProjectMeta, index: number, newName: string) {
     // 更新元数据
     project.name = newName;
@@ -556,7 +550,7 @@ struct ProjectListPage {
 
             // ---------- 悬浮标题栏（上层） ----------
             Row() {
-              Text('竹子定格动画')
+              Text('定格动画')
                 .fontSize(24)
                 .fontWeight(FontWeight.Bold)
                 .fontColor($r('sys.color.font_primary'))
@@ -565,7 +559,7 @@ struct ProjectListPage {
               Button(this.sortBy === 'time' ? '按时间' : '按名称')
                 .fontSize(14)
                 .backgroundColor($r('app.color.icon_button'))
-                .backgroundBlurStyle(BlurStyle.Thin, { colorMode: ThemeColorMode.SYSTEM })
+                //.backgroundBlurStyle(BlurStyle.Thin, { colorMode: ThemeColorMode.SYSTEM })
                 .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
                 .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
                 .fontColor(Color.White)
@@ -585,7 +579,7 @@ struct ProjectListPage {
               .height(40)
               .borderRadius(20)
               .backgroundColor($r('app.color.icon_button'))
-              .backgroundBlurStyle(BlurStyle.Thin, { colorMode: ThemeColorMode.SYSTEM })
+              //.backgroundBlurStyle(BlurStyle.Thin, { colorMode: ThemeColorMode.SYSTEM })
               .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
               .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
               .margin({ left: 8 })
@@ -645,6 +639,8 @@ struct ProjectListPage {
       .onChange((index: number) => {
         this.currentIndex = index;
       })
+      .animationDuration(0)
+      .scrollable(false)
     }
     .backgroundColor($r('sys.color.background_secondary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])

@@ -235,20 +235,24 @@ struct EditorPage {
     ProjectManager.init(this.context);
     ZapUtils.init(this.context);
 
+    // 清理历史导出的残留缓存（位于 cacheDir）
+    try {
+      const oldCache = this.context.cacheDir + '/ffmpeg_frames/';
+      if (fileIo.accessSync(oldCache)) {
+        this.deleteDirectoryRecursive(oldCache);
+      }
+    } catch (e) { /* ignore */ }
+
     const params = router.getParams() as Record<string, string>;
     if (params && params['projectId']) {
-      // 加载已有项目
       this.projectId = params['projectId'];
       this.isNewProject = false;
       this.loadProject();
     } else if (params && params['projectName']) {
-      // 新建项目（从项目列表传入名称）
       this.projectName = params['projectName'];
       this.projectId = Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
       this.isNewProject = true;
-      // frames 保持为空
     } else {
-      // 无参数则返回项目列表
       router.back();
       return;
     }
@@ -423,8 +427,6 @@ struct EditorPage {
     this.propertyDialogController.open();
   }
 
-
-
   async loadProject() {
     const projects = await ProjectManager.getProjects();
     const meta = projects.find(p => p.id === this.projectId);
@@ -527,7 +529,6 @@ struct EditorPage {
 
   // ====== 保存视频到相册（弹窗授权方式） ======
   private async saveVideoToGallery(filePath: string): Promise<void> {
-    // 检查文件是否存在
     try {
       fileIo.statSync(filePath);
     } catch {
@@ -535,7 +536,6 @@ struct EditorPage {
     }
 
     const phHelper = photoAccessHelper.getPhotoAccessHelper(this.context);
-    // 配置保存参数（标题避免特殊字符）
     const timestamp = Date.now();
     const configs: photoAccessHelper.PhotoCreationConfig[] = [
       {
@@ -546,13 +546,11 @@ struct EditorPage {
       }
     ];
 
-    // 弹出授权对话框（会阻塞直到用户操作）
     let destUris: string[];
     try {
       destUris = await phHelper.showAssetsCreationDialog([filePath], configs);
     } catch (err) {
-      // 如果用户取消或发生错误，抛出明确异常
-      if (err.code === 202) { // 常见取消错误码
+      if (err.code === 202) {
         throw new Error('用户取消保存');
       }
       throw new Error(`弹窗授权失败: ${err.message || String(err)}`);
@@ -563,7 +561,6 @@ struct EditorPage {
     }
 
     const destUri = destUris[0];
-    // 复制文件到目标URI
     const srcFile = fileIo.openSync(filePath, fileIo.OpenMode.READ_ONLY);
     const destFile = fileIo.openSync(destUri, fileIo.OpenMode.WRITE_ONLY);
     fileIo.copyFileSync(srcFile.fd, destFile.fd);
@@ -581,7 +578,6 @@ struct EditorPage {
     this.exportCancelFlag = false;
     this.isExporting = true;
 
-    // 显示导出进度对话框
     this.exportDialogController = new CustomDialogController({
       builder: ExportProgressDialog({
         onCancel: () => {
@@ -595,14 +591,12 @@ struct EditorPage {
 
     try {
       await this.doExport();
-      // 导出完成，但保存到相册可能被用户取消，由 saveVideoToGallery 抛出异常
       promptAction.showToast({ message: '视频已保存到相册' });
     } catch (e) {
       if (e instanceof Error && e.message.includes('取消')) {
         promptAction.showToast({ message: '已取消保存' });
       } else {
         console.error('导出失败:', e);
-        // 显示具体错误信息
         promptAction.showToast({ message: `导出失败: ${e.message || '未知错误'}` });
       }
     } finally {
@@ -618,7 +612,8 @@ struct EditorPage {
     const fpsRepeat = this.getTargetFpsAndRepeat();
     const targetFps = fpsRepeat.targetFps;
 
-    const tempDir = this.context.filesDir + '/ffmpeg_frames/';
+    // ✅ 使用 cacheDir 存放临时帧
+    const tempDir = this.context.cacheDir + '/ffmpeg_frames/';
     try {
       if (fileIo.accessSync(tempDir)) {
         this.deleteDirectoryRecursive(tempDir);
@@ -628,7 +623,8 @@ struct EditorPage {
       console.warn('临时目录创建:', e);
     }
 
-    // 导出帧
+    // 导出帧 – 每帧重复 repeat 次
+    let frameIndex = 1; // 序号从1开始
     for (let i = 0; i < this.frames.length; i++) {
       if (this.exportCancelFlag) {
         this.deleteDirectoryRecursive(tempDir);
@@ -645,13 +641,17 @@ struct EditorPage {
       const pngData = await imagePacker.packing(pixelMap, packOpts);
       pixelMap.release();
 
-      const fileName = `frame_${String(i + 1).padStart(5, '0')}.png`;
-      const filePath = tempDir + fileName;
-      const file = fileIo.openSync(filePath,
-        fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC
-      );
-      fileIo.writeSync(file.fd, pngData);
-      fileIo.closeSync(file);
+      // 重复写入 repeat 次
+      for (let rep = 0; rep < fpsRepeat.repeat; rep++) {
+        const fileName = `frame_${String(frameIndex).padStart(5, '0')}.png`;
+        const filePath = tempDir + fileName;
+        const file = fileIo.openSync(filePath,
+          fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC
+        );
+        fileIo.writeSync(file.fd, pngData);
+        fileIo.closeSync(file);
+        frameIndex++;
+      }
     }
 
     if (this.exportCancelFlag) {
@@ -659,7 +659,8 @@ struct EditorPage {
       throw new Error('导出取消');
     }
 
-    const outputPath = `${this.context.filesDir}/export_${Date.now()}.mp4`;
+    // ✅ 输出视频也放到 cacheDir
+    const outputPath = `${this.context.cacheDir}/export_${Date.now()}.mp4`;
     const pattern = tempDir + 'frame_%05d.png';
     const commandArgs = [
       '-framerate', targetFps.toString(),
@@ -775,7 +776,6 @@ struct EditorPage {
       this.buildTopBar();
 
       if (this.isWideScreen) {
-        // 平板横屏：左右布局
         Row() {
           FrameList({
             frames: this.frames,
@@ -808,7 +808,6 @@ struct EditorPage {
         }
         .layoutWeight(1);
       } else {
-        // 手机或平板竖屏：上下布局
         Column() {
           Column() {
             Preview({ imageUri: this.previewUri })

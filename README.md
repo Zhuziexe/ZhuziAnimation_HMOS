@@ -3,8 +3,8 @@
 本程序使用 GPLv3 许可证，基于 HarmonyOS NEXT 开发。
 
 ## 构建要求
-- DevEco Studio 5.0+
-- HarmonyOS SDK API 12+
+- DevEco Studio 6.0+
+- HarmonyOS SDK API 24+
 
 ## 第三方库
 - @tyousan/ffmpeg (GPLv3)
