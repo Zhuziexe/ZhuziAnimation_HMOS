@@ -3,7 +3,7 @@ import { ProjectManager, ProjectMeta } from '../common/ProjectManager';
 import { ZapUtils } from '../common/ZapUtils';
 import { common } from '@kit.AbilityKit';
 import { HdsTabsController, HdsTabs, hdsMaterial } from '@kit.UIDesignKit';
-import { ToolsContent } from '../components/ToolsContent';
+import { ToolsContent } from '../tabs/ToolsContent';
 import { picker } from '@kit.CoreFileKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { promptAction } from '@kit.ArkUI';
@@ -517,8 +517,8 @@ struct Index {
                             action: () => this.exportZapProject(project)
                           },
                           {
-                          value: '重命名',
-                          action: () => this.showRenameDialog(project, index)
+                            value: '重命名',
+                            action: () => this.showRenameDialog(project, index)
                           },
                           {
                             value: '删除',

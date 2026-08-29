@@ -282,69 +282,79 @@ export struct ToolsContent {
     }
   }
 
+  private async pickVideoForCapture() {
+    try {
+      const options = new photoAccessHelper.PhotoSelectOptions();
+      options.MIMEType = photoAccessHelper.PhotoViewMIMETypes.VIDEO_TYPE;
+      options.maxSelectNumber = 1;
+      const photoPicker = new photoAccessHelper.PhotoViewPicker();
+      const result = await photoPicker.select(options);
+      if (result.photoUris.length === 0) {
+        promptAction.showToast({ message: '未选择视频' });
+        return;
+      }
+      const uri = result.photoUris[0];
+      router.pushUrl({
+        url: 'pages/FrameCapturePage',
+        params: { videoUri: uri }
+      });
+    } catch (err) {
+      console.error('选择视频失败:', err);
+      promptAction.showToast({ message: '选择视频失败' });
+    }
+  }
+
+  @Builder
+  buildTool(toolIcon: Resource, toolName: string,toolAction: () => void){
+    Row() {
+      SymbolGlyph(toolIcon)
+        .width(28)
+        .height(28)
+        .fontSize(28)
+        .fontColor([$r('sys.color.font_primary')])
+        .margin({ right: 16 })
+      Text(toolName)
+        .fontSize(16)
+        .fontColor($r('sys.color.font_primary'))
+        .textAlign(TextAlign.Start)
+      Blank()
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .width(32)
+        .height(32)
+        .fontSize(32)
+        .fontColor([$r('sys.color.font_tertiary')])
+    }
+    .width('100%')
+    .height(56)
+    .borderRadius(16)
+    .onClick(toolAction)
+    .padding({ left: 16, right: 4 })
+    .stateStyles({
+      pressed: { .backgroundColor($r('app.color.listitem_pressed')) },
+      normal: { .backgroundColor($r('app.color.listitem')) }
+    })
+  }
+
+  @Builder
+  buildDivider(){
+    Divider().padding({ left: 8, right: 8 }).strokeWidth(0.8)
+  }
+
   build() {
     Stack() {
       List({ space: 12 }) {
         ListItem() {
           Column() {
-            Row() {
-              SymbolGlyph($r('sys.symbol.list_bullet'))
-                .width(28)
-                .height(28)
-                .fontSize(28)
-                .fontColor([$r('sys.color.font_primary')])
-                .margin({ right: 16 })
-              Text('获取视频属性')
-                .fontSize(16)
-                .fontColor($r('sys.color.font_primary'))
-                .textAlign(TextAlign.Start)
-              Blank()
-              SymbolGlyph($r('sys.symbol.chevron_right'))
-                .width(32)
-                .height(32)
-                .fontSize(32)
-                .fontColor([$r('sys.color.font_tertiary')])
-            }
-            .width('100%')
-            .height(56)
-            .borderRadius(16)
-            .onClick(() => {
+            this.buildTool($r('sys.symbol.list_bullet'),"获取视频属性",()=>{
               doGetVideoInfo(this.getUIContext().getHostContext() as common.UIAbilityContext);
-            })
-            .padding({ left: 16, right: 4 })
-            .stateStyles({
-              pressed: { .backgroundColor($r('app.color.listitem_pressed')) },
-              normal: { .backgroundColor($r('app.color.listitem')) }
-            })
-            Divider().padding({ left: 8, right: 8 })
-            Row() {
-              SymbolGlyph($r('sys.symbol.gif_video'))
-                .width(28)
-                .height(28)
-                .fontSize(28)
-                .fontColor([$r('sys.color.font_primary')])
-                .margin({ right: 16 })
-              Text('视频转GIF')
-                .fontSize(16)
-                .fontColor($r('sys.color.font_primary'))
-                .textAlign(TextAlign.Start)
-              Blank()
-              SymbolGlyph($r('sys.symbol.chevron_right'))
-                .width(32)
-                .height(32)
-                .fontSize(32)
-                .fontColor([$r('sys.color.font_tertiary')])
-            }
-            .width('100%')
-            .height(56)
-            .borderRadius(16)
-            .onClick(() => {
+            });
+            this.buildDivider();
+            this.buildTool($r('sys.symbol.gif_video'),"视频转GIF",() => {
               this.pickVideoAndShowSettings();
-            })
-            .padding({ left: 16, right: 4 })
-            .stateStyles({
-              pressed: { .backgroundColor($r('app.color.listitem_pressed')) },
-              normal: { .backgroundColor($r('app.color.listitem')) }
+            });
+            this.buildDivider();
+            this.buildTool($r('sys.symbol.screenshot'),"视频帧截取",()=>{
+              this.pickVideoForCapture();
             })
           }
           .backgroundColor($r('app.color.listitem'))
@@ -355,33 +365,7 @@ export struct ToolsContent {
 
         ListItem() {
           Column() {
-            Row() {
-              SymbolGlyph($r('sys.symbol.info_circle'))
-                .width(28)
-                .height(28)
-                .fontSize(28)
-                .fontColor([$r('sys.color.font_primary')])
-                .margin({ right: 16 })
-              Text('关于')
-                .fontSize(16)
-                .fontColor($r('sys.color.font_primary'))
-                .textAlign(TextAlign.Start)
-              Blank()
-              SymbolGlyph($r('sys.symbol.chevron_right'))
-                .width(32)
-                .height(32)
-                .fontSize(32)
-                .fontColor([$r('sys.color.font_tertiary')])
-            }
-            .width('100%')
-            .height(56)
-            .borderRadius(16)
-            .onClick(() => { showAbout() })
-            .padding({ left: 16, right: 4 })
-            .stateStyles({
-              pressed: { .backgroundColor($r('app.color.listitem_pressed')) },
-              normal: { .backgroundColor($r('app.color.listitem')) }
-            })
+            this.buildTool($r('sys.symbol.info_circle'),"关于",()=>showAbout());
           }
           .backgroundColor($r('app.color.listitem'))
           .borderRadius(16)
