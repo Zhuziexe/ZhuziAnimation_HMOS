@@ -6,14 +6,38 @@ export class TempFileManager {
 
   static init(context: common.UIAbilityContext): void {
     TempFileManager.context = context;
-    TempFileManager.cleanTempDir();
+    // 确保编辑器帧缓存目录存在
+    TempFileManager.ensureEditorFramesDir();
   }
 
-  static getTempDir(): string {
-    return `${TempFileManager.context.filesDir}/temp_frames/`;
+  static getEditorFramesDir(): string {
+    return `${TempFileManager.context.cacheDir}/frames/`;
   }
 
-  // 递归删除目录
+  static ensureEditorFramesDir(): void {
+    const dir = TempFileManager.getEditorFramesDir();
+    try {
+      if (!fileIo.accessSync(dir)) {
+        fileIo.mkdirSync(dir, true);
+      }
+    } catch (e) {
+      fileIo.mkdirSync(dir, true);
+    }
+  }
+
+  static getFrameFilePath(index: number): string {
+    return `${TempFileManager.getEditorFramesDir()}frame_${index}.png`;
+  }
+
+  static clearEditorFrames(): void {
+    const dir = TempFileManager.getEditorFramesDir();
+    try {
+      if (fileIo.accessSync(dir)) {
+        TempFileManager.deleteDirectoryRecursive(dir);
+      }
+    } catch (e) { /* 忽略 */ }
+  }
+
   private static deleteDirectoryRecursive(path: string): void {
     try {
       const files = fileIo.listFileSync(path);
@@ -28,23 +52,7 @@ export class TempFileManager {
       }
       fileIo.rmdirSync(path);
     } catch (e) {
-      console.error('删除目录失败:', path, JSON.stringify(e));
+      console.warn('删除目录失败:', path, JSON.stringify(e));
     }
-  }
-
-  static cleanTempDir(): void {
-    try {
-      const dir = TempFileManager.getTempDir();
-      if (fileIo.accessSync(dir)) {
-        TempFileManager.deleteDirectoryRecursive(dir);
-      }
-      fileIo.mkdirSync(dir);
-    } catch (e) {
-      console.error('清理临时目录失败:', JSON.stringify(e));
-    }
-  }
-
-  static getTempFilePath(index: number): string {
-    return `${TempFileManager.getTempDir()}frame_${index}.png`;
   }
 }

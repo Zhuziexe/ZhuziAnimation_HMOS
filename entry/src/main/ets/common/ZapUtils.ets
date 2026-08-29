@@ -2,6 +2,7 @@ import { image } from '@kit.ImageKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
 import { FrameData } from '../model/FrameData';
+import { TempFileManager } from './TempFileManager';
 
 export interface LoadZapResult {
   frames: FrameData[];
@@ -114,6 +115,7 @@ export class ZapUtils {
       const view = new DataView(buffer);
       let offset = 0;
 
+      // 解析头部（与原来相同）
       const magic = new Uint8Array(buffer, offset, 4);
       if (magic[0] !== 0x5A || magic[1] !== 0x41 || magic[2] !== 0x50 || magic[3] !== 0x31) {
         console.error('无效的ZAP文件: 魔数错误');
@@ -137,8 +139,7 @@ export class ZapUtils {
       const ratioIndex = view.getUint8(offset);
       offset += 1;
 
-      console.info(`ZAP信息: 帧率=${fps}, 帧数=${frameCount}, 比例=${ratioIndex}`);
-
+      // 读取偏移表
       const tableSize = frameCount * 2 * 4;
       const tableBuffer = buffer.slice(offset, offset + tableSize);
       const tableView = new DataView(tableBuffer);
@@ -150,37 +151,27 @@ export class ZapUtils {
       }
       offset += tableSize;
 
+      // 解压帧到 cache/frames/
+      TempFileManager.ensureEditorFramesDir();
+      const framesDir = TempFileManager.getEditorFramesDir();
+
       const frames: FrameData[] = [];
       for (let i = 0; i < frameCount; i++) {
         if (sizes[i] === 0 || offsets[i] === 0) continue;
-        // 计算 PNG 数据偏移
-        const pngStart = offset + offsets[i] - (offset);
+        const pngStart = offset + offsets[i] - offset;
         const pngEnd = pngStart + sizes[i];
         if (pngEnd > buffer.byteLength) {
           console.error(`帧 ${i} 数据超出范围`);
           continue;
         }
         const pngData = buffer.slice(pngStart, pngEnd);
-        // 转换为 ArrayBuffer
-        const arrayBuffer = pngData;
-        console.info(`帧 ${i} PNG数据大小: ${arrayBuffer.byteLength}`);
-        const imageSource = image.createImageSource(arrayBuffer);
-        if (!imageSource) {
-          console.error(`帧 ${i} 创建ImageSource失败`);
-          continue;
-        }
-        const pixelMap = await imageSource.createPixelMap();
-        if (!pixelMap) {
-          console.error(`帧 ${i} 创建PixelMap失败`);
-          continue;
-        }
 
-        const tempDir = ZapUtils.context.filesDir + '/temp';
-        const tempPath = `${tempDir}/frame_${Date.now()}_${i}.png`;
-        const packer = image.createImagePacker();
-        const pngData2 = await packer.packing(pixelMap, { format: 'image/png', quality: 100 });
-        const file2 = fileIo.openSync(tempPath, fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC);
-        fileIo.writeSync(file2.fd, pngData2);
+        // 保存为PNG文件
+        const tempPath = TempFileManager.getFrameFilePath(i);
+        const file2 = fileIo.openSync(tempPath,
+          fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC
+        );
+        fileIo.writeSync(file2.fd, pngData);
         fileIo.closeSync(file2);
 
         const frame: FrameData = {
@@ -195,13 +186,7 @@ export class ZapUtils {
         return null;
       }
 
-      const result: LoadZapResult = {
-        frames: frames,
-        fps: fps,
-        ratioIndex: ratioIndex
-      };
-      console.info(`ZAP加载成功: ${frames.length} 帧`);
-      return result;
+      return { frames, fps, ratioIndex };
     } catch (e) {
       console.error('加载ZAP失败:', e);
       return null;

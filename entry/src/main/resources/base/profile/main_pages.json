@@ -3,6 +3,7 @@
     "pages/Index",
     "pages/EditorPage",
     "pages/VideoInfoPage",
-    "pages/FrameCapturePage"
+    "pages/FrameCapturePage",
+    "pages/VideoCropPage"
   ]
 }

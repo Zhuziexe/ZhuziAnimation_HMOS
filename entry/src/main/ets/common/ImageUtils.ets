@@ -55,7 +55,6 @@ export class ImageUtils {
           y: 0
         }
       };
-      // 单独捕获 readPixels 可能的异常
       try {
         await pixelMap.readPixels(positionArea);
       } catch (readErr) {
@@ -106,8 +105,9 @@ export class ImageUtils {
       };
       const pngData: ArrayBuffer = await imagePacker.packing(finalPixelMap, packOpts);
 
-      // 9. 写入临时文件
-      const tempPath = TempFileManager.getTempFilePath(index);
+      // 9. 确保目录存在并写入临时文件
+      TempFileManager.ensureEditorFramesDir();  // <--- 关键修复
+      const tempPath = TempFileManager.getFrameFilePath(index);
       const tmpFile = fileIo.openSync(
         tempPath,
         fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC

@@ -19,6 +19,7 @@ import window from '@ohos.window';
 import { showAbout } from '../common/ShowAbout';
 
 // ====== 类型定义 ======
+
 interface TargetSize {
   width: number;
   height: number;
@@ -241,7 +242,7 @@ struct EditorPage {
       if (fileIo.accessSync(oldCache)) {
         this.deleteDirectoryRecursive(oldCache);
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {}
 
     const params = router.getParams() as Record<string, string>;
     if (params && params['projectId']) {
@@ -274,10 +275,11 @@ struct EditorPage {
   }
 
   aboutToDisappear() {
-    this.saveProject();
     if (this.windowObj) {
       this.windowObj.off('windowSizeChange', this.windowSizeCallback);
     }
+    // 清理编辑器帧缓存
+    TempFileManager.clearEditorFrames();
   }
 
   private updateScreenState() {
@@ -612,13 +614,14 @@ struct EditorPage {
     const fpsRepeat = this.getTargetFpsAndRepeat();
     const targetFps = fpsRepeat.targetFps;
 
-    // ✅ 使用 cacheDir 存放临时帧
-    const tempDir = this.context.cacheDir + '/ffmpeg_frames/';
+    const tempDir = this.context.cacheDir + '/export/frames/';
+
+    const outputPath = this.context.cacheDir + '/export/export_video.mp4';
     try {
       if (fileIo.accessSync(tempDir)) {
         this.deleteDirectoryRecursive(tempDir);
       }
-      fileIo.mkdirSync(tempDir);
+      fileIo.mkdirSync(tempDir, true);  // 递归创建
     } catch (e) {
       console.warn('临时目录创建:', e);
     }
@@ -659,8 +662,6 @@ struct EditorPage {
       throw new Error('导出取消');
     }
 
-    // ✅ 输出视频也放到 cacheDir
-    const outputPath = `${this.context.cacheDir}/export_${Date.now()}.mp4`;
     const pattern = tempDir + 'frame_%05d.png';
     const commandArgs = [
       '-framerate', targetFps.toString(),

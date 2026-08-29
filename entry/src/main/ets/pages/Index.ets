@@ -8,184 +8,7 @@ import { picker } from '@kit.CoreFileKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { promptAction } from '@kit.ArkUI';
 import { showAbout } from '../common/ShowAbout';
-
-interface ZapHeader {
-  fps: number;
-  frameCount: number;
-  ratioIndex: number;
-}
-
-@CustomDialog
-struct NewProjectDialog {
-  controller?: CustomDialogController;
-  onConfirm: (name: string) => void = () => {};
-  @Prop projectNames: string[] = []; // 已有的项目名称列表
-
-  @State inputText: string = '';
-  @State errorMsg: string = '';
-
-  /**
-   * 校验项目名称
-   * @param name 待校验的名称
-   * @returns 是否通过校验
-   */
-  private validateName(name: string): boolean {
-    const trimmed = name.trim();
-    // 1. 不能为空
-    if (!trimmed) {
-      this.errorMsg = '项目名称不能为空';
-      return false;
-    }
-    // 2. 不能包含 Windows 文件名非法字符：\ / : * ? " < > |
-    if (/[\\/:*?"<>|]/.test(trimmed)) {
-      this.errorMsg = '项目名称不能包含 \\ / : * ? " < > | 等特殊字符';
-      return false;
-    }
-    // 3. 不能与已有项目重名（不区分大小写）
-    if (this.projectNames.some(existing => existing.toLowerCase() === trimmed.toLowerCase())) {
-      this.errorMsg = '已存在同名项目，请修改名称';
-      return false;
-    }
-    // 校验通过
-    this.errorMsg = '';
-    return true;
-  }
-
-  build() {
-    Column({ space: 16 }) {
-      Text('新项目')
-        .fontSize(20)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-
-      TextInput({ placeholder: '请输入项目名称', text: this.inputText })
-        .width('100%')
-        .onChange((value: string) => {
-          this.inputText = value;
-          // 用户输入时清除错误信息
-          if (this.errorMsg) {
-            this.errorMsg = '';
-          }
-        })
-
-      // 显示错误信息
-      if (this.errorMsg) {
-        Text(this.errorMsg)
-          .fontSize(14)
-          .fontColor(Color.Red)
-          .width('100%')
-      }
-
-      Row({ space: 20 }) {
-        Button('取消')
-          .buttonStyle(ButtonStyleMode.NORMAL)
-          .onClick(() => {
-            this.controller?.close();
-          })
-          .layoutWeight(1)
-
-        Button('创建')
-          .buttonStyle(ButtonStyleMode.EMPHASIZED)
-          .onClick(() => {
-            // 执行校验
-            if (this.validateName(this.inputText)) {
-              // 校验通过，调用回调，传递去除首尾空格后的名称
-              this.onConfirm(this.inputText.trim());
-              this.controller?.close();
-            }
-          })
-          .enabled(this.inputText != '')
-          .layoutWeight(1)
-      }
-      .width('100%')
-    }
-    .padding(20)
-    .borderRadius(12)
-  }
-}
-
-@CustomDialog
-struct RenameProjectDialog {
-  controller?: CustomDialogController;
-  currentName: string = '';
-  projectNames: string[] = []; // 所有项目名称列表（含自身），用于重名校验
-  onConfirm: (newName: string) => void = () => {};
-
-  @State inputText: string = '';
-  @State errorMsg: string = '';
-
-  aboutToAppear() {
-    this.inputText = this.currentName;
-  }
-
-  private validateName(name: string): boolean {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      this.errorMsg = '项目名称不能为空';
-      return false;
-    }
-    if (/[\\/:*?"<>|]/.test(trimmed)) {
-      this.errorMsg = '项目名称不能包含 \\ / : * ? " < > | 等特殊字符';
-      return false;
-    }
-    // 检查是否与其它项目重名（不区分大小写），排除自身
-    if (this.projectNames.some(existing =>
-    existing.toLowerCase() === trimmed.toLowerCase() &&
-      existing !== this.currentName
-    )) {
-      this.errorMsg = '已存在同名项目，请修改名称';
-      return false;
-    }
-    this.errorMsg = '';
-    return true;
-  }
-
-  build() {
-    Column({ space: 16 }) {
-      Text('重命名项目')
-        .fontSize(20)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-
-      TextInput({ placeholder: '请输入新名称', text: this.inputText })
-        .width('100%')
-        .onChange((value: string) => {
-          this.inputText = value;
-          if (this.errorMsg) {
-            this.errorMsg = '';
-          }
-        })
-
-      if (this.errorMsg) {
-        Text(this.errorMsg)
-          .fontSize(14)
-          .fontColor(Color.Red)
-          .width('100%')
-      }
-
-      Row({ space: 20 }) {
-        Button('取消')
-          .buttonStyle(ButtonStyleMode.NORMAL)
-          .onClick(() => this.controller?.close())
-          .layoutWeight(1)
-
-        Button('确定')
-          .buttonStyle(ButtonStyleMode.EMPHASIZED)
-          .onClick(() => {
-            if (this.validateName(this.inputText)) {
-              this.onConfirm(this.inputText.trim());
-              this.controller?.close();
-            }
-          })
-          .enabled(this.inputText !== '')
-          .layoutWeight(1)
-      }
-      .width('100%')
-    }
-    .padding(20)
-    .borderRadius(12)
-  }
-}
+import { ZapHeader, NewProjectDialog, RenameProjectDialog } from '../components/ProjectListDialogs';
 
 @Entry
 @Component
@@ -238,7 +61,6 @@ struct Index {
       this.renameDialogController.close();
       this.renameDialogController = null;
     }
-    // 获取所有项目名称列表（用于重名校验）
     const allNames = this.projects.map(p => p.name);
     this.renameDialogController = new CustomDialogController({
       builder: RenameProjectDialog({
@@ -252,40 +74,69 @@ struct Index {
     this.renameDialogController.open();
   }
 
-  async doRename(project: ProjectMeta, index: number, newName: string) {
-    // 更新元数据
-    project.name = newName;
-    project.lastModified = Date.now();
-    await ProjectManager.upsertProject(project);
-    // 刷新列表
-    await this.loadProjects();
-    promptAction.showToast({ message: '重命名成功' });
+  private async renameProjectFile(oldPath: string, newPath: string): Promise<boolean> {
+    try {
+      fileIo.renameSync(oldPath, newPath);
+      return true;
+    } catch (e) {
+      console.error('重命名文件失败:', e);
+      return false;
+    }
   }
 
+  async doRename(project: ProjectMeta, index: number, newName: string) {
+    try {
+      const oldFrameCount = project.frameCount;
+      const oldFilePath = project.filePath;
+
+      const newId = Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+      const newFilePath = `${this.context.filesDir}/${newId}.zap`;
+
+      // 重命名 .zap 文件
+      const renameSuccess = await this.renameProjectFile(oldFilePath, newFilePath);
+      if (!renameSuccess) {
+        promptAction.showToast({ message: '重命名文件失败' });
+        return;
+      }
+
+      // 删除旧项目元数据
+      await ProjectManager.deleteProject(project.id);
+
+      // 创建新项目元数据
+      const newProject: ProjectMeta = {
+        id: newId,
+        name: newName,
+        filePath: newFilePath,
+        lastModified: Date.now(),
+        frameCount: oldFrameCount,
+      };
+      await ProjectManager.upsertProject(newProject);
+
+      // 刷新列表
+      await this.loadProjects();
+
+      promptAction.showToast({ message: '重命名成功' });
+    } catch (e) {
+      console.error('重命名失败:', e);
+      promptAction.showToast({ message: '重命名失败，请重试' });
+    }
+  }
+
+  // ---------- 其余方法保持不变 ----------
   private readZapHeader(buffer: ArrayBuffer): ZapHeader | null {
     const view = new DataView(buffer);
     let offset = 0;
-
-    // 魔数 ZAP1
     const magic = new Uint8Array(buffer, offset, 4);
-    if (magic[0] !== 0x5A || magic[1] !== 0x41 || magic[2] !== 0x50 || magic[3] !== 0x31) {
-      return null;
-    }
+    if (magic[0] !== 0x5A || magic[1] !== 0x41 || magic[2] !== 0x50 || magic[3] !== 0x31) return null;
     offset += 4;
-
-    // 版本（目前为 1）
     const version = view.getUint16(offset, true);
     if (version !== 1) return null;
     offset += 2;
-
     const fps = view.getUint16(offset, true);
     offset += 2;
-
     const frameCount = view.getUint32(offset, true);
     offset += 4;
-
     const ratioIndex = view.getUint8(offset);
-
     return { fps, frameCount, ratioIndex };
   }
 
@@ -326,7 +177,6 @@ struct Index {
         counter++;
       }
 
-      // 超神秘ID生成器
       const newId = Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
       const newFilePath = `${this.context.filesDir}/${newId}.zap`;
       const destFile = fileIo.openSync(newFilePath,
@@ -343,8 +193,6 @@ struct Index {
         frameCount: frameCount,
       };
       await ProjectManager.upsertProject(meta);
-
-      // 刷新列表
       await this.loadProjects();
       promptAction.showToast({ message: `导入成功，共 ${frameCount} 帧` });
     } catch (err) {
@@ -390,7 +238,6 @@ struct Index {
   }
 
   onPageShow() {
-    console.log("刷新");
     this.loadProjects();
   }
 
@@ -398,9 +245,13 @@ struct Index {
     ProjectManager.init(this.context);
     ZapUtils.init(this.context);
     this.loadProjects();
+    (async () => {
+      await this.cleanOrphanZapFiles();
+    })();
   }
 
   async loadProjects() {
+    console.log("刷新");
     const list = await ProjectManager.getProjects();
     this.projects = ProjectManager.sortProjects(list, this.sortBy);
   }
@@ -412,7 +263,6 @@ struct Index {
     }
     this.newProjectDialogController = new CustomDialogController({
       builder: NewProjectDialog({
-        // 传入已有项目名称列表，供重名校验使用
         projectNames: this.projects.map(p => p.name),
         onConfirm: (name: string) => {
           router.pushUrl({
@@ -448,15 +298,33 @@ struct Index {
     });
   }
 
+  private async cleanOrphanZapFiles() {
+    try {
+      const projects = await ProjectManager.getProjects();
+      const validPaths = new Set(projects.map(p => p.filePath));
+      const filesDir = this.context.filesDir;
+      const files = fileIo.listFileSync(filesDir);
+      for (const file of files) {
+        if (file.endsWith('.zap')) {
+          const fullPath = `${filesDir}/${file}`;
+          if (!validPaths.has(fullPath)) {
+            fileIo.unlinkSync(fullPath);
+            console.info('删除孤立ZAP文件:', fullPath);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('清理孤立ZAP文件失败:', e);
+    }
+  }
+
   build() {
     Column() {
       HdsTabs({
         controller: this.tabcont
       }) {
-        // ---------- 第一个 TabContent：项目列表 ----------
         TabContent() {
           Stack() {
-            // 列表内容（位于下层，顶部留出标题栏高度）
             Column() {
               if (this.projects.length === 0) {
                 Column() {
@@ -512,18 +380,9 @@ struct Index {
                         .buttonStyle(ButtonStyleMode.TEXTUAL)
                         .backgroundColor(Color.Transparent)
                         .bindMenu([
-                          {
-                            value: '导出ZAP文件',
-                            action: () => this.exportZapProject(project)
-                          },
-                          {
-                            value: '重命名',
-                            action: () => this.showRenameDialog(project, index)
-                          },
-                          {
-                            value: '删除',
-                            action: () => this.deleteProject(project, index)
-                          }
+                          { value: '导出ZAP文件', action: () => this.exportZapProject(project) },
+                          { value: '重命名', action: () => this.showRenameDialog(project, index) },
+                          { value: '删除', action: () => this.deleteProject(project, index) }
                         ])
                         .width(40)
                         .height(40)
@@ -548,7 +407,6 @@ struct Index {
             .height('100%')
             .backgroundColor($r('sys.color.background_secondary'))
 
-            // ---------- 悬浮标题栏（上层） ----------
             Row() {
               Text('定格动画')
                 .fontSize(24)
@@ -559,11 +417,8 @@ struct Index {
               Button(this.sortBy === 'time' ? '按时间' : '按名称')
                 .fontSize(14)
                 .backgroundColor($r('app.color.icon_button'))
-                //.backgroundBlurStyle(BlurStyle.Thin, { colorMode: ThemeColorMode.SYSTEM })
                 .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
                 .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
-                .fontColor(Color.White)
-                .fontSize(16)
                 .fontColor($r('sys.color.font_primary'))
                 .onClick(() => {
                   this.sortBy = this.sortBy === 'time' ? 'name' : 'time';
@@ -579,13 +434,12 @@ struct Index {
               .height(40)
               .borderRadius(20)
               .backgroundColor($r('app.color.icon_button'))
-              //.backgroundBlurStyle(BlurStyle.Thin, { colorMode: ThemeColorMode.SYSTEM })
               .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
               .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
               .margin({ left: 8 })
               .bindMenu([
-                {value:"导入 ZAP 文件",action:() => this.importZapProject()},
-                {value:"关于",action:() => showAbout()}
+                { value: "导入 ZAP 文件", action: () => this.importZapProject() },
+                { value: "关于", action: () => showAbout() }
               ])
 
               Button() {
@@ -621,7 +475,6 @@ struct Index {
         }
         .tabBar(this.TabBarBuilder('定格动画', 0, $r('sys.symbol.template_fill')))
 
-        // ---------- 第二个 TabContent：工具 ----------
         TabContent() {
           ToolsContent()
         }

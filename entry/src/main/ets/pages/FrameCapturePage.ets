@@ -11,7 +11,7 @@ struct FrameCapturePage {
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
   @State videoUri: string = '';
-  @State currentTime: number = 0;        // 当前播放位置（秒）
+  @State currentTime: number = 0;
   @State isReady: boolean = false;
   private videoController: VideoController = new VideoController();
 
@@ -30,7 +30,6 @@ struct FrameCapturePage {
     this.videoController.stop();
   }
 
-  // ----- 截取当前帧 -----
   private async captureFrame() {
     if (!this.isReady) {
       promptAction.showToast({ message: '视频尚未加载' });
@@ -38,26 +37,25 @@ struct FrameCapturePage {
     }
 
     try {
-      // 将媒体 URI 复制到沙箱（FFmpeg 需要普通文件路径）
-      const inputPath = await this.copyMediaUriToSandbox(this.videoUri);
-      const timeInSeconds = this.currentTime.toFixed(3);  // 精确到毫秒
-      const outputPath = `${this.context.cacheDir}/frame_${Date.now()}.png`;
+      const cacheDir = this.context.cacheDir + '/tools/framecapture/';
+      try { fileIo.mkdirSync(cacheDir, true); } catch {}
 
-      const command = [
-        '-ss', timeInSeconds,
-        '-i', `"${inputPath}"`,
-        '-frames:v', '1',
-        '-y',
-        `"${outputPath}"`
-      ];
-      const result: CommandSyncResult = executeCommandSync(command.join(' '));
+      const inputPath = cacheDir + 'tmp_video.mp4';
+      const outputPath = cacheDir + 'capture_frame.png';
+
+      // 复制视频到缓存
+      await this.copyMediaUriToPath(this.videoUri, inputPath);
+
+      const timeInSeconds = this.currentTime.toFixed(3);
+      const cmd = `-ss ${timeInSeconds} -i "${inputPath}" -frames:v 1 -y "${outputPath}"`;
+      const result: CommandSyncResult = executeCommandSync(cmd);
       if (result.evenType !== 'onSuccess') {
-        throw new Error(`FFmpeg 截图失败: ${result.failStackTrace || '未知错误'}`);
+        throw new Error(`FFmpeg截图失败: ${result.failStackTrace || '未知错误'}`);
       }
 
       await this.saveToGallery(outputPath);
 
-      // 清理临时文件
+      // 清理
       try { fileIo.unlinkSync(inputPath); } catch {}
       try { fileIo.unlinkSync(outputPath); } catch {}
 
@@ -68,14 +66,10 @@ struct FrameCapturePage {
     }
   }
 
-  // ----- 复制媒体到沙箱（供 FFmpeg 使用）-----
-  private async copyMediaUriToSandbox(mediaUri: string): Promise<string> {
+  private async copyMediaUriToPath(mediaUri: string, destPath: string): Promise<void> {
     const srcFd = fileIo.openSync(mediaUri, fileIo.OpenMode.READ_ONLY);
-    if (srcFd.fd < 0) {
-      throw new Error('打开媒体文件失败');
-    }
-    const tempPath = `${this.context.cacheDir}/tmp_video_${Date.now()}.mp4`;
-    const destFd = fileIo.openSync(tempPath, fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY);
+    if (srcFd.fd < 0) throw new Error('打开媒体失败');
+    const destFd = fileIo.openSync(destPath, fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY);
     try {
       const bufferSize = 1024 * 1024;
       const buf = new ArrayBuffer(bufferSize);
@@ -83,14 +77,12 @@ struct FrameCapturePage {
       while ((readLen = fileIo.readSync(srcFd.fd, buf)) > 0) {
         fileIo.writeSync(destFd.fd, buf, { length: readLen });
       }
-      return tempPath;
     } finally {
       fileIo.closeSync(srcFd);
       fileIo.closeSync(destFd);
     }
   }
 
-  // ----- 保存到相册（弹窗授权）-----
   private async saveToGallery(filePath: string): Promise<void> {
     const phHelper = photoAccessHelper.getPhotoAccessHelper(this.context);
     const configs: photoAccessHelper.PhotoCreationConfig[] = [
@@ -127,7 +119,7 @@ struct FrameCapturePage {
       .width(40)
       .buttonStyle(ButtonStyleMode.TEXTUAL)
 
-      Text('视频帧截取')
+      Text('视频单帧提取')
         .layoutWeight(1)
         .fontSize(18)
         .fontColor($r('sys.color.font_primary'))
@@ -146,39 +138,37 @@ struct FrameCapturePage {
       this.buildTopBar();
 
       if (this.isReady && this.videoUri) {
-        Scroll() {
-          Column({ space: 12 }) {
-            // 使用系统自带控制条
-            Video({
-              src: this.videoUri,
-              controller: this.videoController
+        Column({ space: 12 }) {
+          Video({
+            src: this.videoUri,
+            controller: this.videoController
+          })
+            .width('100%')
+            .layoutWeight(1)
+            .autoPlay(false)
+            .controls(true)
+            .objectFit(ImageFit.Contain)
+            .onPrepared(() => {
+              this.videoController.setCurrentTime(0);
+              this.videoController.pause();
             })
-              .width('100%')
-              .aspectRatio(16 / 9)
-              .autoPlay(false)
-              .controls(true)
-              .objectFit(ImageFit.Contain)
-              .onPrepared(() => {
-                // 视频准备完成后，定位到第一帧并暂停（系统控制条会在UI上显示）
-                this.videoController.setCurrentTime(0);
-                this.videoController.pause();
-              })
-              .onUpdate((event) => {
-                // 实时更新当前时间（供截图使用）
-                this.currentTime = event.time; // 单位：秒
-              })
-              .onFinish(() => {
-                // 播放结束时可以不做特殊处理
-              })
+            .onUpdate((event) => {
+              this.currentTime = event.time;
+            })
 
-            Button('截取此帧')
-              .onClick(() => {
-                this.captureFrame();
-              })
-              .width('100%')
-          }
-          .layoutWeight(1)
+          Button('截取此帧')
+            .onClick(() => { this.captureFrame(); })
+            .width('90%')
+            .height(48)
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .backgroundColor($r('sys.color.background_emphasize'))
+            .fontColor(Color.White)
+            .borderRadius(24)
+            .margin({ bottom: 20 })
         }
+        .layoutWeight(1)
+        .padding({ top: 8 })
       } else {
         Column() {
           LoadingProgress()

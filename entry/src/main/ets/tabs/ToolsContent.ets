@@ -48,7 +48,7 @@ struct GifSettingsDialog {
   private isCancelled: boolean = false;
 
   build() {
-    Column({space:12}) {
+    Column({ space: 12 }) {
       Text('视频转GIF')
         .fontSize(20)
         .fontWeight(FontWeight.Medium)
@@ -197,7 +197,7 @@ struct GifProgressDialog {
   cancelCallback: () => void = () => {};
 
   build() {
-    Column({space:16}) {
+    Column({ space: 16 }) {
       LoadingProgress()
         .width(48)
         .height(48)
@@ -220,44 +220,86 @@ struct GifProgressDialog {
   }
 }
 
-// ---------- 原有函数：选择并获取视频信息 ----------
-async function doGetVideoInfo(ctx: common.UIAbilityContext) {
-  try {
-    let PhotoSelectOptions = new photoAccessHelper.PhotoSelectOptions();
-    PhotoSelectOptions.MIMEType = photoAccessHelper.PhotoViewMIMETypes.VIDEO_TYPE;
-    PhotoSelectOptions.maxSelectNumber = 1;
-
-    let photoPicker = new photoAccessHelper.PhotoViewPicker();
-    const PhotoSelectResult = await photoPicker.select(PhotoSelectOptions);
-    if (PhotoSelectResult.photoUris.length === 1) {
-      const uri = PhotoSelectResult.photoUris[0];
-      console.info('选中视频 URI: ' + uri);
-
-      const videoInfo = await getVideoInfo(uri, ctx);
-      console.info(JSON.stringify(videoInfo));
-
-      if (videoInfo) {
-        router.pushUrl({
-          url: 'pages/VideoInfoPage',
-          params: { videoInfo: JSON.stringify(videoInfo) }
-        });
-      } else {
-        promptAction.showToast({ message: "获取视频信息失败" });
-      }
-    }
-  } catch (error) {
-    let err: BusinessError = error as BusinessError;
-    console.error(`选择或获取视频失败: ${err.code}, ${err.message}`);
-  }
-}
-
-// ---------- 主组件 ToolsContent ----------
+// ---------- 主组件 ----------
 @Component
 export struct ToolsContent {
   private settingsDialogController: CustomDialogController | null = null;
+  private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
+  // ====== 清理缓存工具 ======
+  private async cleanToolsCache(): Promise<void> {
+    try {
+      const cacheDir = this.context.cacheDir;
+      if (!cacheDir) return;
+      const toolsDir = cacheDir + '/tools/';
+      // 尝试删除整个 tools 目录
+      try {
+        if (fs.accessSync(toolsDir)) {
+          this.deleteDirectoryRecursive(toolsDir);
+          console.info('已清理 cache/tools/');
+        }
+      } catch (e) {
+        // 目录不存在，忽略
+      }
+    } catch (e) {
+      console.warn('清理 tools 缓存失败:', e);
+    }
+  }
+
+  private deleteDirectoryRecursive(path: string): void {
+    try {
+      const files = fs.listFileSync(path);
+      for (const file of files) {
+        const fullPath = `${path}/${file}`;
+        const stat = fs.statSync(fullPath);
+        if (stat.isDirectory()) {
+          this.deleteDirectoryRecursive(fullPath);
+        } else {
+          fs.unlinkSync(fullPath);
+        }
+      }
+      fs.rmdirSync(path);
+    } catch (e) {
+      console.warn('删除目录失败:', path, e);
+    }
+  }
+
+  // ====== 视频信息 ======
+  private async doGetVideoInfo() {
+    try {
+      // 进入前清理缓存
+      await this.cleanToolsCache();
+
+      const PhotoSelectOptions = new photoAccessHelper.PhotoSelectOptions();
+      PhotoSelectOptions.MIMEType = photoAccessHelper.PhotoViewMIMETypes.VIDEO_TYPE;
+      PhotoSelectOptions.maxSelectNumber = 1;
+
+      const photoPicker = new photoAccessHelper.PhotoViewPicker();
+      const PhotoSelectResult = await photoPicker.select(PhotoSelectOptions);
+      if (PhotoSelectResult.photoUris.length === 1) {
+        const uri = PhotoSelectResult.photoUris[0];
+        const videoInfo = await getVideoInfo(uri, this.context);
+        if (videoInfo) {
+          router.pushUrl({
+            url: 'pages/VideoInfoPage',
+            params: { videoInfo: JSON.stringify(videoInfo) }
+          });
+        } else {
+          promptAction.showToast({ message: "获取视频信息失败" });
+        }
+      }
+    } catch (error) {
+      let err: BusinessError = error as BusinessError;
+      console.error(`选择或获取视频失败: ${err.code}, ${err.message}`);
+    }
+  }
+
+  // ====== 视频转GIF ======
   private async pickVideoAndShowSettings() {
     try {
+      // 进入前清理缓存
+      await this.cleanToolsCache();
+
       const PhotoSelectOptions = new photoAccessHelper.PhotoSelectOptions();
       PhotoSelectOptions.MIMEType = photoAccessHelper.PhotoViewMIMETypes.VIDEO_TYPE;
       PhotoSelectOptions.maxSelectNumber = 1;
@@ -268,11 +310,10 @@ export struct ToolsContent {
         return;
       }
       const uri = result.photoUris[0];
-      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
       this.settingsDialogController = new CustomDialogController({
         builder: GifSettingsDialog({
           videoUri: uri,
-          context: ctx
+          context: this.context
         })
       });
       this.settingsDialogController.open();
@@ -282,8 +323,12 @@ export struct ToolsContent {
     }
   }
 
+  // ====== 视频帧截取 ======
   private async pickVideoForCapture() {
     try {
+      // 进入前清理缓存
+      await this.cleanToolsCache();
+
       const options = new photoAccessHelper.PhotoSelectOptions();
       options.MIMEType = photoAccessHelper.PhotoViewMIMETypes.VIDEO_TYPE;
       options.maxSelectNumber = 1;
@@ -304,8 +349,35 @@ export struct ToolsContent {
     }
   }
 
+  // ====== 视频画面裁剪 ======
+  private async pickVideoForCrop() {
+    try {
+      // 进入前清理缓存
+      await this.cleanToolsCache();
+
+      const options = new photoAccessHelper.PhotoSelectOptions();
+      options.MIMEType = photoAccessHelper.PhotoViewMIMETypes.VIDEO_TYPE;
+      options.maxSelectNumber = 1;
+      const photoPicker = new photoAccessHelper.PhotoViewPicker();
+      const result = await photoPicker.select(options);
+      if (result.photoUris.length === 0) {
+        promptAction.showToast({ message: '未选择视频' });
+        return;
+      }
+      const uri = result.photoUris[0];
+      router.pushUrl({
+        url: 'pages/VideoCropPage',
+        params: { videoUri: uri }
+      });
+    } catch (err) {
+      console.error('选择视频失败:', err);
+      promptAction.showToast({ message: '选择视频失败' });
+    }
+  }
+
+  // ====== UI 工具 ======
   @Builder
-  buildTool(toolIcon: Resource, toolName: string,toolAction: () => void){
+  buildTool(toolIcon: Resource, toolName: string, toolAction: () => void) {
     Row() {
       SymbolGlyph(toolIcon)
         .width(28)
@@ -336,7 +408,7 @@ export struct ToolsContent {
   }
 
   @Builder
-  buildDivider(){
+  buildDivider() {
     Divider().padding({ left: 8, right: 8 }).strokeWidth(0.8)
   }
 
@@ -345,17 +417,21 @@ export struct ToolsContent {
       List({ space: 12 }) {
         ListItem() {
           Column() {
-            this.buildTool($r('sys.symbol.list_bullet'),"获取视频属性",()=>{
-              doGetVideoInfo(this.getUIContext().getHostContext() as common.UIAbilityContext);
+            this.buildTool($r('sys.symbol.list_bullet'), "获取视频属性", () => {
+              this.doGetVideoInfo();
             });
             this.buildDivider();
-            this.buildTool($r('sys.symbol.gif_video'),"视频转GIF",() => {
+            this.buildTool($r('sys.symbol.gif_video'), "视频转GIF", () => {
               this.pickVideoAndShowSettings();
             });
             this.buildDivider();
-            this.buildTool($r('sys.symbol.screenshot'),"视频帧截取",()=>{
+            this.buildTool($r('sys.symbol.screenshot'), "视频帧截取", () => {
               this.pickVideoForCapture();
-            })
+            });
+            this.buildDivider();
+            this.buildTool($r('sys.symbol.crop'), "视频画面裁剪", () => {
+              this.pickVideoForCrop();
+            });
           }
           .backgroundColor($r('app.color.listitem'))
           .borderRadius(16)
@@ -365,7 +441,7 @@ export struct ToolsContent {
 
         ListItem() {
           Column() {
-            this.buildTool($r('sys.symbol.info_circle'),"关于",()=>showAbout());
+            this.buildTool($r('sys.symbol.info_circle'), "关于", () => showAbout());
           }
           .backgroundColor($r('app.color.listitem'))
           .borderRadius(16)
