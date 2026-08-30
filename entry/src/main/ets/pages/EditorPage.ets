@@ -189,7 +189,7 @@ struct ExportProgressDialog {
           this.controller?.close();
         })
         .width(120)
-        .buttonStyle(ButtonStyleMode.NORMAL)
+        .buttonStyle(ButtonStyleMode.TEXTUAL)
     }
     .padding(24)
     .borderRadius(12)

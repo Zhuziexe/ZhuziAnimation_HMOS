@@ -3,11 +3,9 @@ import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { promptAction } from '@kit.ArkUI';
-import { executeCommandSync, CommandSyncResult } from '@tyousan/ffmpeg';
+import { executeCommand, stopCommand, executeCommandSync, CommandSyncResult } from '@tyousan/ffmpeg';
 import { getVideoInfo } from '../common/VideoUtils';
-import taskpool from '@ohos.taskpool';
 
-// ====== 类型定义 ======
 interface CropRect {
   x: number;
   y: number;
@@ -20,68 +18,6 @@ interface Preset {
   ratio: number;
 }
 
-// ====== 并发裁剪任务 ======
-@Concurrent
-async function cropVideoTask(
-  videoUri: string,
-  context: common.UIAbilityContext,
-  rawWidth: number,
-  rawHeight: number,
-  renderX: number,
-  renderY: number,
-  renderW: number,
-  renderH: number,
-  cropX: number,
-  cropY: number,
-  cropW: number,
-  cropH: number
-): Promise<string> {
-  const relX = (cropX - renderX) / renderW;
-  const relY = (cropY - renderY) / renderH;
-  const relW = cropW / renderW;
-  const relH = cropH / renderH;
-  const pixelX = Math.round(relX * rawWidth);
-  const pixelY = Math.round(relY * rawHeight);
-  const pixelW = Math.round(relW * rawWidth);
-  const pixelH = Math.round(relH * rawHeight);
-  const finalX = Math.max(0, Math.min(pixelX, rawWidth - pixelW));
-  const finalY = Math.max(0, Math.min(pixelY, rawHeight - pixelH));
-  const finalW = Math.min(pixelW, rawWidth - finalX);
-  const finalH = Math.min(pixelH, rawHeight - finalY);
-
-  // 复制视频到沙箱
-  const cacheDir = context.cacheDir + '/tools/cropvideo/';
-  try { fileIo.mkdirSync(cacheDir, true); } catch {}
-  const tempInput = cacheDir + 'tmp_video.mp4';
-  // 删除旧文件（避免残留影响）
-  try { fileIo.unlinkSync(tempInput); } catch {}
-  const srcFd = fileIo.openSync(videoUri, fileIo.OpenMode.READ_ONLY);
-  if (srcFd.fd < 0) throw new Error('打开视频失败');
-  const destFd = fileIo.openSync(tempInput, fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC);
-  try {
-    const buf = new ArrayBuffer(1024 * 1024);
-    let len: number;
-    while ((len = fileIo.readSync(srcFd.fd, buf)) > 0) {
-      fileIo.writeSync(destFd.fd, buf, { length: len });
-    }
-  } finally {
-    fileIo.closeSync(srcFd);
-    fileIo.closeSync(destFd);
-  }
-
-  const outputPath = cacheDir + 'cropped_video.mp4';
-  const filter = `crop=${finalW}:${finalH}:${finalX}:${finalY}`;
-  const cmd = `-i "${tempInput}" -vf ${filter} -c:a copy -y "${outputPath}"`;
-  const result: CommandSyncResult = executeCommandSync(cmd);
-  if (result.evenType !== 'onSuccess') {
-    throw new Error(`裁剪失败: ${result.failStackTrace || '未知错误'}`);
-  }
-  // 清理输入
-  try { fileIo.unlinkSync(tempInput); } catch {}
-  return outputPath;
-}
-
-// ====== 裁剪进度对话框 ======
 @CustomDialog
 struct CropProgressDialog {
   controller: CustomDialogController;
@@ -92,6 +28,13 @@ struct CropProgressDialog {
       LoadingProgress().width(48).height(48)
       Text('裁剪中...').fontSize(18).fontColor($r('sys.color.font_primary'))
       Text('裁剪视频可能需要一些时间。').fontSize(14).fontColor($r('sys.color.font_secondary'))
+      Button('取消')
+        .buttonStyle(ButtonStyleMode.TEXTUAL)
+        .onClick(() => {
+          this.onCancel();
+          this.controller.close();
+        })
+        .width(120)
     }
     .padding(24)
     .borderRadius(12)
@@ -99,7 +42,6 @@ struct CropProgressDialog {
   }
 }
 
-// ====== 主页面 ======
 @Entry
 @Component
 struct VideoCropPage {
@@ -122,6 +64,9 @@ struct VideoCropPage {
   @State pixelInfo: string = '等待裁剪';
   private cropInitialized: boolean = false;
   private progressDialogController: CustomDialogController | null = null;
+  private currentSessionId: number = -1;
+  private cancelFlag: boolean = false;
+  private isPageAlive: boolean = true;
 
   private presets: Preset[] = [
     { label: '1:1', ratio: 1 },
@@ -143,10 +88,13 @@ struct VideoCropPage {
   }
 
   aboutToDisappear() {
-    // 删除第一帧图片
-    try { if (this.framePath) fileIo.unlinkSync(this.framePath); } catch {}
-    // 清理该工具下的其他临时文件
+    this.isPageAlive = false;
+    if (this.progressDialogController) {
+      try { this.progressDialogController.close(); } catch {}
+      this.progressDialogController = null;
+    }
     const cacheDir = this.context.cacheDir + '/tools/cropvideo/';
+    try { fileIo.unlinkSync(cacheDir + 'crop_frame.png'); } catch {}
     try { fileIo.unlinkSync(cacheDir + 'tmp_video.mp4'); } catch {}
     try { fileIo.unlinkSync(cacheDir + 'cropped_video.mp4'); } catch {}
   }
@@ -169,20 +117,11 @@ struct VideoCropPage {
       }
 
       const cacheDir = this.context.cacheDir + '/tools/cropvideo/';
-      // 确保目录存在
-      try {
-        if (!fileIo.accessSync(cacheDir)) {
-          fileIo.mkdirSync(cacheDir, true);
-        }
-      } catch (e) {
-        fileIo.mkdirSync(cacheDir, true);
-      }
+      try { fileIo.mkdirSync(cacheDir, true); } catch {}
       const inputPath = cacheDir + 'tmp_video.mp4';
       const framePath = cacheDir + 'crop_frame.png';
 
-      // 复制视频到缓存（内部会先删除目标文件）
       await this.copyMediaUriToPath(this.videoUri, inputPath);
-      // 提取第一帧，-y 强制覆盖输出文件
       const cmd = `-i "${inputPath}" -frames:v 1 -y "${framePath}"`;
       const result: CommandSyncResult = executeCommandSync(cmd);
       if (result.evenType !== 'onSuccess') throw new Error('提取第一帧失败');
@@ -197,14 +136,8 @@ struct VideoCropPage {
     }
   }
 
-  // 🛠️ 关键修复：先删除目标文件，再写入
   private async copyMediaUriToPath(mediaUri: string, destPath: string): Promise<void> {
-    // 先尝试删除目标文件（如果存在），避免 File exists 错误
-    try {
-      fileIo.unlinkSync(destPath);
-    } catch (e) {
-      // 文件不存在或无法删除，忽略
-    }
+    try { fileIo.unlinkSync(destPath); } catch {}
     const srcFd = fileIo.openSync(mediaUri, fileIo.OpenMode.READ_ONLY);
     if (srcFd.fd < 0) throw new Error('打开媒体失败');
     const destFd = fileIo.openSync(destPath, fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC);
@@ -300,17 +233,23 @@ struct VideoCropPage {
     this.updatePixelInfo(rect);
   }
 
-  private async doCrop() {
+  private doCropAsync() {
     if (this.isExporting) return;
     if (this.crop.width < 10 || this.crop.height < 10) {
       promptAction.showToast({ message: '裁剪区域太小' });
       return;
     }
 
+    this.cancelFlag = false;
+    this.isExporting = true;
+
     this.progressDialogController = new CustomDialogController({
       builder: CropProgressDialog({
         onCancel: () => {
-          promptAction.showToast({ message: '正在后台处理，请稍候...' });
+          if (this.currentSessionId > 0) {
+            stopCommand({ sessionId: this.currentSessionId });
+          }
+          this.cancelFlag = true;
         }
       }),
       autoCancel: false,
@@ -318,58 +257,138 @@ struct VideoCropPage {
     });
     this.progressDialogController.open();
 
-    this.isExporting = true;
-    try {
-      const outputPath = await taskpool.execute(
-        cropVideoTask,
-        this.videoUri,
-        this.context,
-        this.rawWidth,
-        this.rawHeight,
-        this.renderX,
-        this.renderY,
-        this.renderW,
-        this.renderH,
-        this.crop.x,
-        this.crop.y,
-        this.crop.width,
-        this.crop.height
-      ) as string;
+    const cacheDir = this.context.cacheDir + '/tools/cropvideo/';
+    const inputPath = cacheDir + 'tmp_video.mp4';
+    const outputPath = cacheDir + 'cropped_video.mp4';
 
-      try {
-        await this.saveToGallery(outputPath);
-        promptAction.showToast({ message: '裁剪视频已保存到相册' });
-      } catch {}
-      try { fileIo.unlinkSync(outputPath); } catch {}
-    } catch (err) {
-      console.error('裁剪失败:', err);
-      promptAction.showToast({ message: `裁剪失败: ${err.message || '未知错误'}` });
-    } finally {
+    const displayWidth = this.displayWidth;
+    const displayHeight = this.displayHeight;
+    const srcRatio = this.rawWidth / this.rawHeight;
+    const displayRatio = displayWidth / displayHeight;
+
+    let renderWidth: number, renderHeight: number;
+    let offsetX: number, offsetY: number;
+    if (srcRatio > displayRatio) {
+      renderWidth = displayWidth;
+      renderHeight = displayWidth / srcRatio;
+      offsetX = 0;
+      offsetY = (displayHeight - renderHeight) / 2;
+    } else {
+      renderHeight = displayHeight;
+      renderWidth = displayHeight * srcRatio;
+      offsetX = (displayWidth - renderWidth) / 2;
+      offsetY = 0;
+    }
+
+    const relX = (this.crop.x - offsetX) / renderWidth;
+    const relY = (this.crop.y - offsetY) / renderHeight;
+    const relW = this.crop.width / renderWidth;
+    const relH = this.crop.height / renderHeight;
+
+    const pixelX = Math.round(relX * this.rawWidth);
+    const pixelY = Math.round(relY * this.rawHeight);
+    const pixelW = Math.round(relW * this.rawWidth);
+    const pixelH = Math.round(relH * this.rawHeight);
+
+    const finalX = Math.max(0, Math.min(pixelX, this.rawWidth - pixelW));
+    const finalY = Math.max(0, Math.min(pixelY, this.rawHeight - pixelH));
+    const finalW = Math.min(pixelW, this.rawWidth - finalX);
+    const finalH = Math.min(pixelH, this.rawHeight - finalY);
+
+    if (finalW < 10 || finalH < 10) {
+      promptAction.showToast({ message: '裁剪区域映射到视频后太小' });
       this.isExporting = false;
-      if (this.progressDialogController) {
-        this.progressDialogController.close();
-        this.progressDialogController = null;
+      this.closeProgressDialog();
+      return;
+    }
+
+    try { fileIo.unlinkSync(outputPath); } catch {}
+
+    const filter = `crop=${finalW}:${finalH}:${finalX}:${finalY}`;
+    const args = ['-i', inputPath, '-vf', filter, '-c:a', 'copy', '-y', outputPath];
+
+    console.info('FFmpeg 裁剪参数:', args.join(' '));
+
+    executeCommand({
+      cmd: args.join(' '),
+      start: (result) => {
+        this.currentSessionId = result.sessionId;
+        console.info('裁剪任务启动, sessionId:', this.currentSessionId);
+      },
+      success: (result) => {
+        console.info('裁剪任务成功:', result);
+        if (!this.cancelFlag && this.isPageAlive) {
+          this.saveToGallery(outputPath);
+        } else {
+          try { fileIo.unlinkSync(outputPath); } catch {}
+        }
+        this.closeProgressDialog();
+      },
+      fail: (error) => {
+        console.error('裁剪任务失败:', error);
+        if (this.isPageAlive && !this.cancelFlag) {
+          promptAction.showToast({ message: `裁剪失败: ${error.message || '未知错误'}` });
+        }
+        try { fileIo.unlinkSync(outputPath); } catch {}
+        this.closeProgressDialog();
+      },
+      cancel: (result) => {
+        console.info('裁剪任务已取消:', result);
+        try { fileIo.unlinkSync(outputPath); } catch {}
+        if (this.isPageAlive) {
+          promptAction.showToast({ message: '已取消裁剪' });
+        }
+        this.closeProgressDialog();
+      },
+      complete: (result) => {
+        console.info('裁剪任务结束:', result);
+        this.isExporting = false;
+        this.currentSessionId = -1;
       }
+    });
+  }
+
+  private closeProgressDialog() {
+    if (this.progressDialogController) {
+      try { this.progressDialogController.close(); } catch {}
+      this.progressDialogController = null;
     }
   }
 
+  private async doCrop() {
+    this.doCropAsync();
+  }
+
   private async saveToGallery(filePath: string): Promise<void> {
-    const phHelper = photoAccessHelper.getPhotoAccessHelper(this.context);
-    const configs: photoAccessHelper.PhotoCreationConfig[] = [
-      {
-        title: `裁剪_${Date.now()}`,
-        fileNameExtension: 'mp4',
-        photoType: photoAccessHelper.PhotoType.VIDEO,
-        subtype: photoAccessHelper.PhotoSubtype.DEFAULT,
+    try {
+      const phHelper = photoAccessHelper.getPhotoAccessHelper(this.context);
+      const configs: photoAccessHelper.PhotoCreationConfig[] = [
+        {
+          title: `裁剪_${Date.now()}`,
+          fileNameExtension: 'mp4',
+          photoType: photoAccessHelper.PhotoType.VIDEO,
+          subtype: photoAccessHelper.PhotoSubtype.DEFAULT,
+        }
+      ];
+      const destUris = await phHelper.showAssetsCreationDialog([filePath], configs);
+      if (!destUris || destUris.length === 0) throw new Error('用户取消保存');
+      const srcFile = fileIo.openSync(filePath, fileIo.OpenMode.READ_ONLY);
+      const destFile = fileIo.openSync(destUris[0], fileIo.OpenMode.WRITE_ONLY);
+      fileIo.copyFileSync(srcFile.fd, destFile.fd);
+      fileIo.closeSync(srcFile);
+      fileIo.closeSync(destFile);
+      if (this.isPageAlive) {
+        promptAction.showToast({ message: '裁剪视频已保存到相册' });
+        router.back();
       }
-    ];
-    const destUris = await phHelper.showAssetsCreationDialog([filePath], configs);
-    if (!destUris || destUris.length === 0) throw new Error('用户取消保存');
-    const srcFile = fileIo.openSync(filePath, fileIo.OpenMode.READ_ONLY);
-    const destFile = fileIo.openSync(destUris[0], fileIo.OpenMode.WRITE_ONLY);
-    fileIo.copyFileSync(srcFile.fd, destFile.fd);
-    fileIo.closeSync(srcFile);
-    fileIo.closeSync(destFile);
+    } catch (err) {
+      console.error('保存到图库失败:', err);
+      if (this.isPageAlive) {
+        promptAction.showToast({ message: `保存失败: ${err.message || '未知错误'}` });
+      }
+    } finally {
+      try { fileIo.unlinkSync(filePath); } catch {}
+    }
   }
 
   @Builder
@@ -380,7 +399,13 @@ struct VideoCropPage {
           .fontSize(24).width(24).height(24)
           .fontColor([$r('sys.color.font_primary')])
       }
-      .onClick(() => router.back())
+      .onClick(() => {
+        if (this.isExporting) {
+          promptAction.showToast({ message: '正在裁剪，请使用"取消"按钮停止' });
+        } else {
+          router.back();
+        }
+      })
       .height(40).width(40).buttonStyle(ButtonStyleMode.TEXTUAL)
 
       Text('视频画面裁剪')
@@ -477,7 +502,7 @@ struct VideoCropPage {
           Row() {
             Text(this.pixelInfo)
               .fontSize(14)
-              .fontColor($r('sys.color.font_secondary'))
+              .fontColor($r('sys.color.font_primary'))
           }
           .width('100%')
           .padding({ left: 16, right: 16 })
@@ -493,10 +518,8 @@ struct VideoCropPage {
             .borderRadius(24)
             .onClick(() => this.doCrop())
             .enabled(!this.isExporting && this.crop.width > 10 && this.crop.height > 10)
-            .margin({ bottom: 20 })
         }
         .layoutWeight(1)
-        .padding({ top: 8 })
       }
     }
     .width('100%')
@@ -506,7 +529,6 @@ struct VideoCropPage {
   }
 }
 
-// ====== CropOverlay（裁剪框覆盖层）======
 @Component
 struct CropOverlay {
   @Prop @Watch('onCropChanged') cropRect: CropRect = { x: 0, y: 0, width: 0, height: 0 };

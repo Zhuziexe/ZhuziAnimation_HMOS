@@ -6,7 +6,7 @@ import { HdsTabsController, HdsTabs, hdsMaterial } from '@kit.UIDesignKit';
 import { ToolsContent } from '../tabs/ToolsContent';
 import { picker } from '@kit.CoreFileKit';
 import { fileIo } from '@kit.CoreFileKit';
-import { promptAction } from '@kit.ArkUI';
+import { promptAction, SymbolGlyphModifier } from '@kit.ArkUI';
 import { showAbout } from '../common/ShowAbout';
 import { ZapHeader, NewProjectDialog, RenameProjectDialog } from '../components/ProjectListDialogs';
 
@@ -19,42 +19,7 @@ struct Index {
   private newProjectDialogController: CustomDialogController | null = null;
   private renameDialogController: CustomDialogController | null = null;
 
-  @State tabPressedStates: boolean[] = [false, false];
-  @State currentIndex: number = 0;
   private tabcont: HdsTabsController = new HdsTabsController();
-
-  @Builder
-  TabBarBuilder(title: string, index: number, IconSymbol: Resource) {
-    Column() {
-      SymbolGlyph(IconSymbol)
-        .width(24)
-        .height(24)
-        .fontSize(24)
-        .fontColor([this.currentIndex === index ? $r('sys.color.background_emphasize') : $r('sys.color.font_primary')])
-        .scale({
-          x: this.tabPressedStates[index] ? 0.85 : 1.0,
-          y: this.tabPressedStates[index] ? 0.85 : 1.0,
-        })
-      Text(title)
-        .fontSize(12)
-        .fontColor(this.currentIndex === index ? $r('sys.color.background_emphasize') : $r('sys.color.font_primary'))
-        .margin({ top: 2 })
-    }
-    .justifyContent(FlexAlign.Center)
-    .width('100%')
-    .height('100%')
-    .onTouch((event: TouchEvent) => {
-      if (event.type === TouchType.Down) {
-        animateTo({ duration: 100, curve: Curve.EaseIn }, () => {
-          this.tabPressedStates[index] = true;
-        });
-      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-        animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
-          this.tabPressedStates[index] = false;
-        });
-      }
-    })
-  }
 
   showRenameDialog(project: ProjectMeta, index: number) {
     if (this.renameDialogController) {
@@ -324,6 +289,20 @@ struct Index {
         controller: this.tabcont
       }) {
         TabContent() {
+          ToolsContent()
+        }
+        .tabBar(
+          BottomTabBarStyle.of({
+            normal: new SymbolGlyphModifier($r('sys.symbol.more_fill'))
+              .renderingStrategy(SymbolRenderingStrategy.SINGLE)
+              .fontColor([$r('sys.color.font_primary')]),
+            selected: new SymbolGlyphModifier($r('sys.symbol.more_fill'))
+              .renderingStrategy(SymbolRenderingStrategy.SINGLE)
+          }, $r('app.string.video_tools'))
+            .labelStyle({ unselectedColor: $r('sys.color.font_primary') })
+        )
+
+        TabContent() {
           Stack() {
             Column() {
               if (this.projects.length === 0) {
@@ -340,7 +319,8 @@ struct Index {
                 .layoutWeight(1)
                 .justifyContent(FlexAlign.Center)
                 .padding({ top: 56, bottom: 80 })
-              } else {
+              }
+              else {
                 List({ space: 4 }) {
                   ForEach(this.projects, (project: ProjectMeta, index: number) => {
                     ListItem() {
@@ -408,14 +388,14 @@ struct Index {
             .backgroundColor($r('sys.color.background_secondary'))
 
             Row() {
-              Text('定格动画')
+              Text($r('app.string.stop_motion_animation'))
                 .fontSize(24)
                 .fontWeight(FontWeight.Bold)
                 .fontColor($r('sys.color.font_primary'))
                 .layoutWeight(1)
 
               Button(this.sortBy === 'time' ? '按时间' : '按名称')
-                .fontSize(14)
+                .fontSize(18)
                 .backgroundColor($r('app.color.icon_button'))
                 .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
                 .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
@@ -473,12 +453,16 @@ struct Index {
           .width('100%')
           .height('100%')
         }
-        .tabBar(this.TabBarBuilder('定格动画', 0, $r('sys.symbol.template_fill')))
-
-        TabContent() {
-          ToolsContent()
-        }
-        .tabBar(this.TabBarBuilder('小工具', 1, $r('sys.symbol.more_fill')))
+        .tabBar(
+          BottomTabBarStyle.of({
+            normal: new SymbolGlyphModifier($r('sys.symbol.template_fill'))
+              .renderingStrategy(SymbolRenderingStrategy.SINGLE)
+              .fontColor([$r('sys.color.font_primary')]),
+            selected: new SymbolGlyphModifier($r('sys.symbol.template_fill'))
+              .renderingStrategy(SymbolRenderingStrategy.SINGLE)
+          }, $r('app.string.stop_motion_animation'))
+            .labelStyle({ unselectedColor: $r('sys.color.font_primary') })
+        )
       }
       .barPosition(BarPosition.End)
       .vertical(false)
@@ -488,9 +472,6 @@ struct Index {
           materialType: hdsMaterial.MaterialType.ADAPTIVE,
           materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
         }
-      })
-      .onChange((index: number) => {
-        this.currentIndex = index;
       })
       .animationDuration(0)
       .scrollable(false)

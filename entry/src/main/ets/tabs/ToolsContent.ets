@@ -264,114 +264,128 @@ export struct ToolsContent {
     }
   }
 
-  // ====== 视频信息 ======
-  private async doGetVideoInfo() {
+  private async pickVideo(): Promise<string | null> {
     try {
-      // 进入前清理缓存
-      await this.cleanToolsCache();
-
-      const PhotoSelectOptions = new photoAccessHelper.PhotoSelectOptions();
-      PhotoSelectOptions.MIMEType = photoAccessHelper.PhotoViewMIMETypes.VIDEO_TYPE;
-      PhotoSelectOptions.maxSelectNumber = 1;
-
+      const options = new photoAccessHelper.PhotoSelectOptions();
+      options.MIMEType = photoAccessHelper.PhotoViewMIMETypes.VIDEO_TYPE;
+      options.maxSelectNumber = 1;
       const photoPicker = new photoAccessHelper.PhotoViewPicker();
-      const PhotoSelectResult = await photoPicker.select(PhotoSelectOptions);
-      if (PhotoSelectResult.photoUris.length === 1) {
-        const uri = PhotoSelectResult.photoUris[0];
-        const videoInfo = await getVideoInfo(uri, this.context);
-        if (videoInfo) {
-          router.pushUrl({
-            url: 'pages/VideoInfoPage',
-            params: { videoInfo: JSON.stringify(videoInfo) }
-          });
-        } else {
-          promptAction.showToast({ message: "获取视频信息失败" });
-        }
+      const result = await photoPicker.select(options);
+      if (result.photoUris.length === 0) {
+        promptAction.showToast({ message: '未选择视频' });
+        return null;
       }
-    } catch (error) {
-      let err: BusinessError = error as BusinessError;
-      console.error(`选择或获取视频失败: ${err.code}, ${err.message}`);
+      return result.photoUris[0];
+    } catch (err) {
+      console.error('选择视频失败:', err);
+      promptAction.showToast({ message: '选择视频失败' });
+      return null;
+    }
+  }
+
+  private async doGetVideoInfo() {
+    await this.cleanToolsCache();
+    const uri = await this.pickVideo();
+    if (!uri) return;
+    const videoInfo = await getVideoInfo(uri, this.context);
+    if (videoInfo) {
+      router.pushUrl({
+        url: 'pages/VideoInfoPage',
+        params: { videoInfo: JSON.stringify(videoInfo) }
+      });
+    } else {
+      promptAction.showToast({ message: "获取视频信息失败" });
     }
   }
 
   // ====== 视频转GIF ======
   private async pickVideoAndShowSettings() {
-    try {
-      // 进入前清理缓存
-      await this.cleanToolsCache();
-
-      const PhotoSelectOptions = new photoAccessHelper.PhotoSelectOptions();
-      PhotoSelectOptions.MIMEType = photoAccessHelper.PhotoViewMIMETypes.VIDEO_TYPE;
-      PhotoSelectOptions.maxSelectNumber = 1;
-      const photoPicker = new photoAccessHelper.PhotoViewPicker();
-      const result = await photoPicker.select(PhotoSelectOptions);
-      if (result.photoUris.length === 0) {
-        promptAction.showToast({ message: '未选择视频' });
-        return;
-      }
-      const uri = result.photoUris[0];
-      this.settingsDialogController = new CustomDialogController({
-        builder: GifSettingsDialog({
-          videoUri: uri,
-          context: this.context
-        })
-      });
-      this.settingsDialogController.open();
-    } catch (err) {
-      console.error('选择视频失败:', err);
-      promptAction.showToast({ message: '选择视频失败' });
-    }
-  }
+  await this.cleanToolsCache();
+  const uri = await this.pickVideo();
+  if (!uri) return;
+  this.settingsDialogController = new CustomDialogController({
+    builder: GifSettingsDialog({
+      videoUri: uri,
+      context: this.context
+    })
+  });
+  this.settingsDialogController.open();
+}
 
   // ====== 视频帧截取 ======
   private async pickVideoForCapture() {
-    try {
-      // 进入前清理缓存
-      await this.cleanToolsCache();
-
-      const options = new photoAccessHelper.PhotoSelectOptions();
-      options.MIMEType = photoAccessHelper.PhotoViewMIMETypes.VIDEO_TYPE;
-      options.maxSelectNumber = 1;
-      const photoPicker = new photoAccessHelper.PhotoViewPicker();
-      const result = await photoPicker.select(options);
-      if (result.photoUris.length === 0) {
-        promptAction.showToast({ message: '未选择视频' });
-        return;
-      }
-      const uri = result.photoUris[0];
-      router.pushUrl({
-        url: 'pages/FrameCapturePage',
-        params: { videoUri: uri }
-      });
-    } catch (err) {
-      console.error('选择视频失败:', err);
-      promptAction.showToast({ message: '选择视频失败' });
-    }
-  }
+  await this.cleanToolsCache();
+  const uri = await this.pickVideo();
+  if (!uri) return;
+  router.pushUrl({
+    url: 'pages/FrameCapturePage',
+    params: { videoUri: uri }
+  });
+}
 
   // ====== 视频画面裁剪 ======
   private async pickVideoForCrop() {
+    await this.cleanToolsCache();
+    const uri = await this.pickVideo();
+    if (!uri) return;
+    router.pushUrl({
+      url: 'pages/VideoCropPage',
+      params: { videoUri: uri }
+    });
+  }
+
+  // 在 pickVideoForRotate 方法中，改为跳转页面
+  private async pickVideoForRotate() {
+  await this.cleanToolsCache();
+  const uri = await this.pickVideo();
+  if (!uri) return;
+  router.pushUrl({
+    url: 'pages/VideoRotatePage',
+    params: { videoUri: uri }
+  });
+}
+
+  private async pickVideoForWatermark() {
+    await this.cleanToolsCache();
+    const uri = await this.pickVideo();
+    if (!uri) return;
+    router.pushUrl({
+      url: 'pages/AddWatermarkPage',
+      params: { videoUri: uri }
+    });
+  }
+
+  private async pickVideoForImageWatermark() {
     try {
-      // 进入前清理缓存
       await this.cleanToolsCache();
 
-      const options = new photoAccessHelper.PhotoSelectOptions();
-      options.MIMEType = photoAccessHelper.PhotoViewMIMETypes.VIDEO_TYPE;
-      options.maxSelectNumber = 1;
-      const photoPicker = new photoAccessHelper.PhotoViewPicker();
-      const result = await photoPicker.select(options);
-      if (result.photoUris.length === 0) {
-        promptAction.showToast({ message: '未选择视频' });
+      // 1. 选择视频
+      const videoUri = await this.pickVideo();
+      if (!videoUri) return;
+
+      // 2. 选择图片
+      const imageOptions = new photoAccessHelper.PhotoSelectOptions();
+      imageOptions.MIMEType = photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE;
+      imageOptions.maxSelectNumber = 1;
+      const imagePicker = new photoAccessHelper.PhotoViewPicker();
+      const imageResult = await imagePicker.select(imageOptions);
+      if (!imageResult || imageResult.photoUris.length === 0) {
+        promptAction.showToast({ message: '未选择图片' });
         return;
       }
-      const uri = result.photoUris[0];
+      const imageUri = imageResult.photoUris[0];
+
+      // 3. 跳转到图片水印页面，同时传递视频和图片URI
       router.pushUrl({
-        url: 'pages/VideoCropPage',
-        params: { videoUri: uri }
+        url: 'pages/AddImageWatermarkPage',
+        params: {
+          videoUri: videoUri,
+          imageUri: imageUri
+        }
       });
     } catch (err) {
-      console.error('选择视频失败:', err);
-      promptAction.showToast({ message: '选择视频失败' });
+      console.error('选择视频或图片失败:', err);
+      promptAction.showToast({ message: '选择失败' });
     }
   }
 
@@ -425,12 +439,24 @@ export struct ToolsContent {
               this.pickVideoAndShowSettings();
             });
             this.buildDivider();
-            this.buildTool($r('sys.symbol.screenshot'), "视频帧截取", () => {
+            this.buildTool($r('sys.symbol.screenshot'), "视频单帧提取", () => {
               this.pickVideoForCapture();
             });
             this.buildDivider();
             this.buildTool($r('sys.symbol.crop'), "视频画面裁剪", () => {
               this.pickVideoForCrop();
+            });
+            this.buildDivider();
+            this.buildTool($r('sys.symbol.rotate_left'), "视频旋转", () => {
+              this.pickVideoForRotate();
+            });
+            this.buildDivider();
+            this.buildTool($r('sys.symbol.watermark_font'), "添加文字水印", () => {
+              this.pickVideoForWatermark();
+            });
+            this.buildDivider();
+            this.buildTool($r('sys.symbol.star_square_on_square'),"添加图片水印",()=>{
+              this.pickVideoForImageWatermark();
             });
           }
           .backgroundColor($r('app.color.listitem'))
@@ -456,7 +482,7 @@ export struct ToolsContent {
       .contentEndOffset(80)
 
       Row() {
-        Text('小工具')
+        Text($r('app.string.video_tools'))
           .fontSize(24)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))

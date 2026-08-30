@@ -6,11 +6,19 @@
     },
     {
       "name": "EntryAbility_desc",
-      "value": "竹子视频主界面"
+      "value": "竹子视频"
     },
     {
       "name": "EntryAbility_label",
       "value": "竹子视频"
+    },
+    {
+      "name": "video_tools",
+      "value": "视频工具"
+    },
+    {
+      "name": "stop_motion_animation",
+      "value": "定格动画"
     }
   ]
 }

@@ -4,6 +4,9 @@
     "pages/EditorPage",
     "pages/VideoInfoPage",
     "pages/FrameCapturePage",
-    "pages/VideoCropPage"
+    "pages/VideoCropPage",
+    "pages/VideoRotatePage",
+    "pages/AddWatermarkPage",
+    "pages/AddImageWatermarkPage"
   ]
 }
