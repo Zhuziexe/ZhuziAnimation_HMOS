@@ -42,7 +42,7 @@ struct WatermarkProgressDialog {
   build() {
     Column({ space: 16 }) {
       LoadingProgress().width(48).height(48)
-      Text('添加水印中...').fontSize(18).fontColor($r('sys.color.font_primary'))
+      Text('叠加图片中...').fontSize(18).fontColor($r('sys.color.font_primary'))
       Text('处理视频可能需要一些时间。').fontSize(14).fontColor($r('sys.color.font_secondary'))
       Button('取消')
         .buttonStyle(ButtonStyleMode.TEXTUAL)
@@ -336,7 +336,7 @@ struct AddImageWatermarkPage {
   private async startExport() {
     if (this.isExporting) return;
     if (!this.watermarkImagePath) {
-      promptAction.showToast({ message: '请先选择水印图片' });
+      promptAction.showToast({ message: '请先选择要叠加的图片' });
       return;
     }
 
@@ -364,16 +364,16 @@ struct AddImageWatermarkPage {
       try { fileIo.unlinkSync(outputPath); } catch {}
 
       const args = this.buildWatermarkCommand(inputPath, outputPath, this.watermarkImagePath);
-      console.info('FFmpeg 水印参数:', args.join(' '));
+      console.info('FFmpeg 叠加图片参数:', args.join(' '));
 
       executeCommand({
         cmd: args.join(' '),
         start: (result: FfmpegResult) => {
           this.currentSessionId = result.sessionId ?? -1;
-          console.info('水印任务启动, sessionId:', this.currentSessionId);
+          console.info('叠加图片任务启动, sessionId:', this.currentSessionId);
         },
         success: (result: FfmpegResult) => {
-          console.info('水印任务成功');
+          console.info('叠加图片任务成功');
           if (!this.cancelFlag && this.isPageAlive) {
             this.saveToGallery(outputPath);
           } else {
@@ -383,34 +383,34 @@ struct AddImageWatermarkPage {
           this.isExporting = false;
         },
         fail: (error: FfmpegError) => {
-          console.error('水印任务失败，完整错误:', JSON.stringify(error));
+          console.error('叠加图片任务失败，完整错误:', JSON.stringify(error));
           if (error.stderr) {
             console.error('stderr:', error.stderr);
           }
           if (this.isPageAlive && !this.cancelFlag) {
-            promptAction.showToast({ message: `添加水印失败: ${error.message || '未知错误'}` });
+            promptAction.showToast({ message: `叠加图片失败: ${error.message || '未知错误'}` });
           }
           try { fileIo.unlinkSync(outputPath); } catch {}
           this.closeProgressDialog();
           this.isExporting = false;
         },
         cancel: (result: FfmpegResult) => {
-          console.info('水印任务已取消');
+          console.info('叠加图片任务已取消');
           try { fileIo.unlinkSync(outputPath); } catch {}
           if (this.isPageAlive) {
-            promptAction.showToast({ message: '已取消添加水印' });
+            promptAction.showToast({ message: '已取消叠加图片' });
           }
           this.closeProgressDialog();
           this.isExporting = false;
         },
         complete: (result: FfmpegResult) => {
-          console.info('水印任务结束');
+          console.info('叠加图片任务结束');
           this.currentSessionId = -1;
         }
       });
     } catch (err) {
-      console.error('准备水印失败:', err);
-      promptAction.showToast({ message: '准备水印失败' });
+      console.error('准备叠加图片失败:', err);
+      promptAction.showToast({ message: '准备叠加图片失败' });
       this.closeProgressDialog();
       this.isExporting = false;
     }
@@ -443,7 +443,7 @@ struct AddImageWatermarkPage {
       fileIo.closeSync(srcFile);
       fileIo.closeSync(destFile);
       if (this.isPageAlive) {
-        promptAction.showToast({ message: '水印视频已保存到相册' });
+        promptAction.showToast({ message: '视频已保存到相册' });
         router.back();
       }
     } catch (err) {
@@ -475,7 +475,7 @@ struct AddImageWatermarkPage {
       })
       .height(40).width(40).buttonStyle(ButtonStyleMode.TEXTUAL)
 
-      Text('视频加水印（图片）')
+      Text('叠加图片到视频')
         .layoutWeight(1)
         .fontSize(18)
         .fontColor($r('sys.color.font_primary'))
@@ -491,27 +491,6 @@ struct AddImageWatermarkPage {
   @Builder
   buildControlPanel() {
     Column({ space: 8 }) {
-      Row() {
-        Text('水印图片').width(70).fontSize(16).fontColor($r('sys.color.font_primary'))
-        if (this.watermarkImagePath) {
-          Image(this.watermarkImagePath)
-            .width(48)
-            .height(48)
-            .objectFit(ImageFit.Contain)
-            .borderRadius(4)
-            .margin({ right: 8 })
-        } else {
-          Text('未选择').fontSize(14).fontColor($r('sys.color.font_secondary'))
-        }
-        Text(`缩放 ${Math.round(this.imageScale * 100)}%`)
-          .fontSize(14)
-          .fontColor($r('sys.color.font_secondary'))
-          .layoutWeight(1)
-          .textAlign(TextAlign.End)
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16 })
-
       Row() {
         Text('大小').width(70).fontSize(16).fontColor($r('sys.color.font_primary'))
         Slider({
@@ -645,7 +624,7 @@ struct AddImageWatermarkPage {
 
           this.buildControlPanel()
 
-          Button('添加水印并导出')
+          Button('叠加图片并导出')
             .width('90%')
             .height(48)
             .fontSize(18)

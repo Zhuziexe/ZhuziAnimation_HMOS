@@ -1,3 +1,4 @@
+// EditorPage.ets
 import router from '@ohos.router';
 import { FrameData } from '../model/FrameData';
 import { FrameList } from '../components/FrameList';
@@ -13,7 +14,7 @@ import { ZapUtils } from '../common/ZapUtils';
 import { promptAction } from '@kit.ArkUI';
 import { image } from '@kit.ImageKit';
 import { fileIo } from '@kit.CoreFileKit';
-import { executeCommandSync, CommandSyncResult } from '@tyousan/ffmpeg';
+import { executeCommand, stopCommand, executeCommandSync, CommandSyncResult } from '@tyousan/ffmpeg';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import window from '@ohos.window';
 import { showAbout } from '../common/ShowAbout';
@@ -223,6 +224,7 @@ struct EditorPage {
   private isExporting: boolean = false;
   private exportCancelFlag: boolean = false;
   private exportDialogController: CustomDialogController | null = null;
+  private currentExportSessionId: number = -1;   // 用于取消 FFmpeg 任务
 
   // ====== 屏幕适配 ======
   @State private isWideScreen: boolean = false;
@@ -579,11 +581,16 @@ struct EditorPage {
 
     this.exportCancelFlag = false;
     this.isExporting = true;
+    this.currentExportSessionId = -1;
 
     this.exportDialogController = new CustomDialogController({
       builder: ExportProgressDialog({
         onCancel: () => {
           this.exportCancelFlag = true;
+          // 如果 FFmpeg 正在运行，立即停止
+          if (this.currentExportSessionId > 0) {
+            stopCommand({ sessionId: this.currentExportSessionId });
+          }
         }
       }),
       autoCancel: false,
@@ -595,11 +602,13 @@ struct EditorPage {
       await this.doExport();
       promptAction.showToast({ message: '视频已保存到相册' });
     } catch (e) {
-      if (e instanceof Error && e.message.includes('取消')) {
+      // 安全获取错误信息
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      if (errorMessage.includes('取消') || errorMessage === 'Cancelled') {
         promptAction.showToast({ message: '已取消保存' });
       } else {
         console.error('导出失败:', e);
-        promptAction.showToast({ message: `导出失败: ${e.message || '未知错误'}` });
+        promptAction.showToast({ message: `导出失败: ${errorMessage || '未知错误'}` });
       }
     } finally {
       this.isExporting = false;
@@ -615,13 +624,14 @@ struct EditorPage {
     const targetFps = fpsRepeat.targetFps;
 
     const tempDir = this.context.cacheDir + '/export/frames/';
-
     const outputPath = this.context.cacheDir + '/export/export_video.mp4';
+
+    // 创建临时目录
     try {
       if (fileIo.accessSync(tempDir)) {
         this.deleteDirectoryRecursive(tempDir);
       }
-      fileIo.mkdirSync(tempDir, true);  // 递归创建
+      fileIo.mkdirSync(tempDir, true);
     } catch (e) {
       console.warn('临时目录创建:', e);
     }
@@ -671,36 +681,55 @@ struct EditorPage {
       '-y',
       outputPath
     ];
-
     const commandString = commandArgs.join(' ');
     console.info(`FFmpeg 命令: ${commandString}`);
 
+    // 改为异步 executeCommand
     try {
-      const result: CommandSyncResult = executeCommandSync(commandString);
-      if (result.evenType !== 'onSuccess') {
-        const errorMsg = result.failStackTrace || `错误码: ${result.errCode ?? '未知'}`;
-        throw new Error(`FFmpeg 执行失败: ${errorMsg}`);
-      }
-      console.info('FFmpeg 执行成功');
+      await new Promise<void>((resolve, reject) => {
+        executeCommand({
+          cmd: commandString,
+          start: (result) => {
+            this.currentExportSessionId = result.sessionId;
+            console.info('FFmpeg 导出任务启动, sessionId:', this.currentExportSessionId);
+          },
+          success: () => {
+            console.info('FFmpeg 导出成功');
+            resolve();
+          },
+          fail: (error) => {
+            console.error('FFmpeg 导出失败:', error);
+            reject(new Error(error.message || 'FFmpeg 执行失败'));
+          },
+          cancel: () => {
+            console.info('FFmpeg 导出被取消');
+            reject(new Error('Cancelled'));
+          },
+          complete: () => {
+            this.currentExportSessionId = -1;
+          }
+        });
+      });
     } catch (err) {
-      console.error('FFmpeg 执行异常:', err);
-      if (err instanceof Error) {
-        throw err;
-      } else {
-        throw new Error(`FFmpeg 执行异常: ${String(err)}`);
-      }
+      // 清理临时目录和输出文件
+      this.deleteDirectoryRecursive(tempDir);
+      try { fileIo.unlinkSync(outputPath); } catch {}
+      // 确保抛出 Error 类型
+      throw new Error(err instanceof Error ? err.message : String(err));
     }
 
+    // 清理临时帧目录
     this.deleteDirectoryRecursive(tempDir);
 
+    // 检查是否被取消（可能在 FFmpeg 执行期间取消）
     if (this.exportCancelFlag) {
-      try { fileIo.unlinkSync(outputPath); } catch (e) {}
+      try { fileIo.unlinkSync(outputPath); } catch {}
       throw new Error('导出取消');
     }
 
-    // 保存到相册（弹窗授权）
+    // 保存到相册
     await this.saveVideoToGallery(outputPath);
-    try { fileIo.unlinkSync(outputPath); } catch (e) {}
+    try { fileIo.unlinkSync(outputPath); } catch {}
   }
 
   private deleteDirectoryRecursive(path: string): void {

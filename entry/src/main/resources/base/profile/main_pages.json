@@ -7,6 +7,8 @@
     "pages/VideoCropPage",
     "pages/VideoRotatePage",
     "pages/AddWatermarkPage",
-    "pages/AddImageWatermarkPage"
+    "pages/AddImageOverlayPage",
+    "pages/VideoBlurPage",
+    "pages/ImageBlurPage"
   ]
 }
