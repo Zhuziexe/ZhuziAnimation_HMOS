@@ -10,7 +10,6 @@ import { ExtractAudioDialog } from '../components/ExtractAudioDialog';
 import { VideoMuteDialog } from '../components/VideoMuteDialog';
 import { GifSettingsDialog, GifProgressDialog } from '../components/VideoToGifDialog';
 
-// ---------- 主组件 ----------
 @Component
 export struct ToolsContent {
   private settingsDialogController: CustomDialogController | null = null;
@@ -18,20 +17,17 @@ export struct ToolsContent {
   private videoMuteDialogController: CustomDialogController | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
-  // ====== 清理缓存工具 ======
   private async cleanToolsCache(): Promise<void> {
     try {
       const cacheDir = this.context.cacheDir;
       if (!cacheDir) return;
       const toolsDir = cacheDir + '/tools/';
-      // 尝试删除整个 tools 目录
       try {
         if (fs.accessSync(toolsDir)) {
           this.deleteDirectoryRecursive(toolsDir);
           console.info('已清理 cache/tools/');
         }
       } catch (e) {
-        // 目录不存在，忽略
       }
     } catch (e) {
       console.warn('清理 tools 缓存失败:', e);
@@ -75,7 +71,7 @@ export struct ToolsContent {
     }
   }
 
-  private async doGetVideoInfo() {
+  private async pickVideoForInfo() {
     await this.cleanToolsCache();
     const uri = await this.pickVideo();
     if (!uri) return;
@@ -90,7 +86,7 @@ export struct ToolsContent {
     }
   }
 
-  private async pickVideoAndShowSettings() {
+  private async pickVideoForGif() {
     await this.cleanToolsCache();
     const uri = await this.pickVideo();
     if (!uri) return;
@@ -103,57 +99,22 @@ export struct ToolsContent {
     this.settingsDialogController.open();
   }
 
-  // ====== 视频帧截取 ======
-  private async pickVideoForCapture() {
-  await this.cleanToolsCache();
-  const uri = await this.pickVideo();
-  if (!uri) return;
-  router.pushUrl({
-    url: 'pages/FrameCapturePage',
-    params: { videoUri: uri }
-  });
-}
-
-  // ====== 视频画面裁剪 ======
-  private async pickVideoForCrop() {
+  private async pickVideoForPage(pageUrl: string) {
     await this.cleanToolsCache();
     const uri = await this.pickVideo();
-    if (!uri) return;
+    if(!uri) return;
     router.pushUrl({
-      url: 'pages/VideoCropPage',
-      params: { videoUri: uri }
-    });
-  }
-
-  private async pickVideoForRotate() {
-  await this.cleanToolsCache();
-  const uri = await this.pickVideo();
-  if (!uri) return;
-  router.pushUrl({
-    url: 'pages/VideoRotatePage',
-    params: { videoUri: uri }
-  });
-}
-
-  private async pickVideoForWatermark() {
-    await this.cleanToolsCache();
-    const uri = await this.pickVideo();
-    if (!uri) return;
-    router.pushUrl({
-      url: 'pages/AddWatermarkPage',
-      params: { videoUri: uri }
+      url: pageUrl,
+      params:{videoUri:uri}
     });
   }
 
   private async pickVideoForOverlay() {
     try {
       await this.cleanToolsCache();
-
-      // 1. 选择视频
       const videoUri = await this.pickVideo();
       if (!videoUri) return;
 
-      // 2. 选择图片
       const imageOptions = new photoAccessHelper.PhotoSelectOptions();
       imageOptions.MIMEType = photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE;
       imageOptions.maxSelectNumber = 1;
@@ -165,7 +126,6 @@ export struct ToolsContent {
       }
       const imageUri = imageResult.photoUris[0];
 
-      // 3. 跳转到图片水印页面，同时传递视频和图片URI
       router.pushUrl({
         url: 'pages/AddImageOverlayPage',
         params: {
@@ -177,16 +137,6 @@ export struct ToolsContent {
       console.error('选择视频或图片失败:', err);
       promptAction.showToast({ message: '选择失败' });
     }
-  }
-
-  private async pickVideoForBlur() {
-    await this.cleanToolsCache();
-    const uri = await this.pickVideo();
-    if (!uri) return;
-    router.pushUrl({
-      url: 'pages/VideoBlurPage',
-      params: { videoUri: uri }
-    });
   }
 
   private async pickVideoForExtractAudio() {
@@ -291,27 +241,27 @@ export struct ToolsContent {
         ListItem() {
           Column() {
             this.buildTool($r('sys.symbol.list_bullet'), "获取视频属性", () => {
-              this.doGetVideoInfo();
+              this.pickVideoForInfo();
             });
             this.buildDivider();
             this.buildTool($r('sys.symbol.gif_video'), "视频转GIF", () => {
-              this.pickVideoAndShowSettings();
+              this.pickVideoForGif();
             });
             this.buildDivider();
             this.buildTool($r('sys.symbol.arrow_up_and_rectangle_on_rectangle'), "视频单帧提取", () => {
-              this.pickVideoForCapture();
+              this.pickVideoForPage('pages/FrameCapturePage');
             });
             this.buildDivider();
             this.buildTool($r('sys.symbol.crop'), "视频画面裁剪", () => {
-              this.pickVideoForCrop();
+              this.pickVideoForPage('pages/VideoCropPage');
             });
             this.buildDivider();
             this.buildTool($r('sys.symbol.rotate_left'), "视频旋转", () => {
-              this.pickVideoForRotate();
+              this.pickVideoForPage('pages/VideoRotatePage');
             });
             this.buildDivider();
             this.buildTool($r('sys.symbol.character_square'), "添加文字水印", () => {
-              this.pickVideoForWatermark();
+              this.pickVideoForPage('pages/AddWatermarkPage');
             });
             this.buildDivider();
             this.buildTool($r('sys.symbol.star_square_on_square'),"叠加图片到视频",()=>{
@@ -319,7 +269,7 @@ export struct ToolsContent {
             });
             this.buildDivider();
             this.buildTool($r('sys.symbol.make_video'), "视频区域模糊", () => {
-              this.pickVideoForBlur();
+              this.pickVideoForPage('pages/VideoBlurPage');
             });
             this.buildDivider();
             this.buildTool($r('sys.symbol.square_split_2x1_dash'), "图片区域模糊", () => {

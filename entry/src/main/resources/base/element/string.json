@@ -17,6 +17,10 @@
       "value": "视频工具"
     },
     {
+      "name": "home_page",
+      "value": "主页"
+    },
+    {
       "name": "stop_motion_animation",
       "value": "定格动画"
     }

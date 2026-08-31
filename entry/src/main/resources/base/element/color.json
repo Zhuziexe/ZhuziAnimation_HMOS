@@ -27,6 +27,18 @@
     {
       "name": "titlebar_gradient_end",
       "value": "#00ffffff"
+    },
+    {
+      "name": "home_card_1",
+      "value": "#FF99CEFF"
+    },
+    {
+      "name": "home_card_2",
+      "value": "#FF83F5FF"
+    },
+    {
+      "name": "home_card_3",
+      "value": "#FF94FFFB"
     }
   ]
 }

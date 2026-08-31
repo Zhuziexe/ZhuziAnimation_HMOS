@@ -1,4 +1,5 @@
 import router from '@ohos.router';
+import { HomeContent } from '../tabs/HomeContent';
 import { ProjectManager, ProjectMeta } from '../common/ProjectManager';
 import { ZapUtils } from '../common/ZapUtils';
 import { common } from '@kit.AbilityKit';
@@ -20,6 +21,8 @@ struct Index {
   private renameDialogController: CustomDialogController | null = null;
 
   private tabcont: HdsTabsController = new HdsTabsController();
+
+  @StorageLink('tabindex') tabindex: number = 1;
 
   showRenameDialog(project: ProjectMeta, index: number) {
     if (this.renameDialogController) {
@@ -286,7 +289,8 @@ struct Index {
   build() {
     Column() {
       HdsTabs({
-        controller: this.tabcont
+        controller: this.tabcont,
+        index: this.tabindex
       }) {
         TabContent() {
           ToolsContent()
@@ -299,6 +303,20 @@ struct Index {
             selected: new SymbolGlyphModifier($r('sys.symbol.more_fill'))
               .renderingStrategy(SymbolRenderingStrategy.SINGLE)
           }, $r('app.string.video_tools'))
+            .labelStyle({ unselectedColor: $r('sys.color.font_primary') })
+        )
+
+        TabContent() {
+          HomeContent()
+        }
+        .tabBar(
+          BottomTabBarStyle.of({
+            normal: new SymbolGlyphModifier($r('sys.symbol.house_fill'))
+              .renderingStrategy(SymbolRenderingStrategy.SINGLE)
+              .fontColor([$r('sys.color.font_primary')]),
+            selected: new SymbolGlyphModifier($r('sys.symbol.house_fill'))
+              .renderingStrategy(SymbolRenderingStrategy.SINGLE)
+          }, $r('app.string.home_page'))
             .labelStyle({ unselectedColor: $r('sys.color.font_primary') })
         )
 
@@ -475,6 +493,9 @@ struct Index {
       })
       .animationDuration(0)
       .scrollable(false)
+      .onChange((index: number) => {
+        this.tabindex = index;
+      })
     }
     .backgroundColor($r('sys.color.background_secondary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
