@@ -486,6 +486,7 @@ struct VideoBlurPage {
                 this.blurStrength = value;
               })
               .layoutWeight(1)
+              .selectedColor($r('app.color.brand'))
             Text(`${this.blurStrength}`)
               .fontSize(16)
               .width(40)
@@ -508,7 +509,7 @@ struct VideoBlurPage {
             .height(48)
             .fontSize(18)
             .fontWeight(FontWeight.Medium)
-            .backgroundColor($r('sys.color.background_emphasize'))
+            .backgroundColor($r('app.color.brand'))
             .fontColor(Color.White)
             .borderRadius(24)
             .onClick(() => this.doBlur())

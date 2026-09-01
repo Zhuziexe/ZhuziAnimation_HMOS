@@ -5,10 +5,6 @@
       "value": "#FFFFFF"
     },
     {
-      "name": "primary",
-      "value": "#007AFF"
-    },
-    {
       "name": "selected_frame",
       "value": "#C8DFFF"
     },
@@ -30,15 +26,31 @@
     },
     {
       "name": "home_card_1",
-      "value": "#FF99CEFF"
+      "value": "#FF99FF9B"
     },
     {
       "name": "home_card_2",
-      "value": "#FF83F5FF"
+      "value": "#FFAEFF83"
     },
     {
       "name": "home_card_3",
-      "value": "#FF94FFFB"
+      "value": "#FF94FF9F"
+    },
+    {
+      "name": "selected_tab_button",
+      "value": "#FFFFFFFF"
+    },
+    {
+      "name": "unselected_tab_button",
+      "value": "#ffe5e5ea"
+    },
+    {
+      "name": "brand",
+      "value": "#FF43A740"
+    },
+    {
+      "name": "brand_card",
+      "value": "#FFAEFF8F"
     }
   ]
 }

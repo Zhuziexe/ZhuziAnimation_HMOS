@@ -1,14 +1,12 @@
-import { showAbout } from '../common/ShowAbout';
-import { VideoToGIF, getVideoInfo } from '../common/VideoUtils';
-import { BusinessError } from '@kit.BasicServicesKit';
+import { getVideoInfo } from '../common/VideoUtils';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { common } from '@kit.AbilityKit';
 import { promptAction, router } from '@kit.ArkUI';
-import taskpool from '@ohos.taskpool';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { ExtractAudioDialog } from '../components/ExtractAudioDialog';
 import { VideoMuteDialog } from '../components/VideoMuteDialog';
-import { GifSettingsDialog, GifProgressDialog } from '../components/VideoToGifDialog';
+import { GifSettingsDialog } from '../components/VideoToGifDialog';
+import { SegmentButton, SegmentButtonOptions } from '@kit.ArkUI';
 
 @Component
 export struct ToolsContent {
@@ -16,6 +14,10 @@ export struct ToolsContent {
   private extractAudioDialogController: CustomDialogController | null = null;
   private videoMuteDialogController: CustomDialogController | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+
+
+
+  @StorageLink('toolIndex') currentFilter : number = 0;
 
   private async cleanToolsCache(): Promise<void> {
     try {
@@ -238,91 +240,104 @@ export struct ToolsContent {
   build() {
     Stack() {
       List({ space: 12 }) {
-        ListItem() {
-          Column() {
-            this.buildTool($r('sys.symbol.list_bullet'), "获取视频属性", () => {
-              this.pickVideoForInfo();
-            });
-            this.buildDivider();
-            this.buildTool($r('sys.symbol.gif_video'), "视频转GIF", () => {
-              this.pickVideoForGif();
-            });
-            this.buildDivider();
-            this.buildTool($r('sys.symbol.arrow_up_and_rectangle_on_rectangle'), "视频单帧提取", () => {
-              this.pickVideoForPage('pages/FrameCapturePage');
-            });
-            this.buildDivider();
-            this.buildTool($r('sys.symbol.crop'), "视频画面裁剪", () => {
-              this.pickVideoForPage('pages/VideoCropPage');
-            });
-            this.buildDivider();
-            this.buildTool($r('sys.symbol.rotate_left'), "视频旋转", () => {
-              this.pickVideoForPage('pages/VideoRotatePage');
-            });
-            this.buildDivider();
-            this.buildTool($r('sys.symbol.character_square'), "添加文字水印", () => {
-              this.pickVideoForPage('pages/AddWatermarkPage');
-            });
-            this.buildDivider();
-            this.buildTool($r('sys.symbol.star_square_on_square'),"叠加图片到视频",()=>{
-              this.pickVideoForOverlay();
-            });
-            this.buildDivider();
-            this.buildTool($r('sys.symbol.make_video'), "视频区域模糊", () => {
-              this.pickVideoForPage('pages/VideoBlurPage');
-            });
-            this.buildDivider();
-            this.buildTool($r('sys.symbol.square_split_2x1_dash'), "图片区域模糊", () => {
-              this.pickImageForBlur();
-            });
+        if(this.currentFilter == 0) {
+          ListItem() {
+            Column() {
+              this.buildTool($r('sys.symbol.list_bullet'), "获取视频属性", () => {
+                this.pickVideoForInfo();
+              });
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.gif_video'), "视频转GIF", () => {
+                this.pickVideoForGif();
+              });
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.arrow_up_and_rectangle_on_rectangle'), "视频单帧提取", () => {
+                this.pickVideoForPage('pages/FrameCapturePage');
+              });
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.crop'), "视频画面裁剪", () => {
+                this.pickVideoForPage('pages/VideoCropPage');
+              });
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.rotate_left'), "视频旋转", () => {
+                this.pickVideoForPage('pages/VideoRotatePage');
+              });
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.character_square'), "添加文字水印", () => {
+                this.pickVideoForPage('pages/AddWatermarkPage');
+              });
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.star_square_on_square'), "叠加图片到视频", () => {
+                this.pickVideoForOverlay();
+              });
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.make_video'), "视频区域模糊", () => {
+                this.pickVideoForPage('pages/VideoBlurPage');
+              });
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.music_slash_fill'), "去除视频音频", () => {
+                this.pickVideoForMute();
+              });
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.wave_video'), "提取视频音频", () => {
+                this.pickVideoForExtractAudio();
+              });
+            }
+            .backgroundColor($r('app.color.listitem'))
+            .borderRadius(16)
+            .padding(4)
           }
-          .backgroundColor($r('app.color.listitem'))
-          .borderRadius(16)
-          .padding(4)
+          .padding({ left: 12, right: 12 })
         }
-        .padding({ left: 12, right: 12 })
-
-        ListItem() {
-          Column() {
-            this.buildTool($r('sys.symbol.music_slash_fill'),"去除视频音频",()=>{
-              this.pickVideoForMute();
-            });
-            this.buildDivider();
-            this.buildTool($r('sys.symbol.wave_video'), "提取视频音频", () => {
-              this.pickVideoForExtractAudio();
-            });
+        if(this.currentFilter == 1) {
+          ListItem() {
+            Column() {
+              this.buildTool($r('sys.symbol.square_split_2x1_dash'), "图片区域模糊", () => {
+                this.pickImageForBlur();
+              });
+            }
+            .backgroundColor($r('app.color.listitem'))
+            .borderRadius(16)
+            .padding(4)
           }
-          .backgroundColor($r('app.color.listitem'))
-          .borderRadius(16)
-          .padding(4)
+          .padding({ left: 12, right: 12 })
         }
-        .padding({ left: 12, right: 12 })
-
-        ListItem() {
-          Column() {
-            this.buildTool($r('sys.symbol.info_circle'), "关于", () => showAbout());
-          }
-          .backgroundColor($r('app.color.listitem'))
-          .borderRadius(16)
-          .padding(4)
-        }
-        .padding({ left: 12, right: 12 })
       }
       .width('100%')
       .align(Alignment.Top)
       .alignListItem(ListItemAlign.Center)
-      .contentStartOffset(56)
+      .contentStartOffset(110)
       .contentEndOffset(80)
-
-      Row() {
-        Text($r('app.string.video_tools'))
-          .fontSize(24)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1)
+      Column({space:4}) {
+        Row() {
+          Text($r('app.string.tools_page'))
+            .fontSize(24)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+        }
+        .height(56)
+        Row({space:2}){
+          Button('音视频')
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .backgroundColor(this.currentFilter == 0? $r('app.color.selected_tab_button') : $r('app.color.unselected_tab_button'))
+            .onClick(()=>{this.currentFilter = 0;})
+            .stateEffect(false)
+          Button('图片')
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .backgroundColor(this.currentFilter == 1? $r('app.color.selected_tab_button') : $r('app.color.unselected_tab_button'))
+            .onClick(()=>{this.currentFilter = 1;})
+            .stateEffect(false)
+        }
+        .borderRadius(20)
+        .backgroundColor($r('app.color.unselected_tab_button'))
+        .width('100%')
+        .height(40)
+        .padding(2)
       }
       .width('100%')
-      .height(56)
       .padding({ left: 16, right: 16 })
       .position({ x: 0, y: 0 })
       .zIndex(1)

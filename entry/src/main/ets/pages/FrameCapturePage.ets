@@ -162,7 +162,7 @@ struct FrameCapturePage {
             .height(48)
             .fontSize(18)
             .fontWeight(FontWeight.Medium)
-            .backgroundColor($r('sys.color.background_emphasize'))
+            .backgroundColor($r('app.color.brand'))
             .fontColor(Color.White)
             .borderRadius(24)
             .margin({ bottom: 20 })

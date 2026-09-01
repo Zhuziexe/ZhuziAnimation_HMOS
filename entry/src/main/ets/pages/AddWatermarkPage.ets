@@ -155,7 +155,7 @@ struct AddWatermarkPage {
 
   @State watermarkText: string = '我的水印';
   @State fontSize: number = 60;               // 视频像素大小
-  @State fontColor: string = '#00FFFF';
+  @State fontColor: string = '#FF0000';
   @State alpha: number = 0.8;
 
   // 视频像素坐标（用于导出）
@@ -548,6 +548,7 @@ struct AddWatermarkPage {
             }
           })
           .layoutWeight(1)
+          .selectedColor($r('app.color.brand'))
         Text(`${this.fontSize}`).width(40).fontSize(16).textAlign(TextAlign.End)
       }
       .width('100%')
@@ -608,6 +609,7 @@ struct AddWatermarkPage {
             this.alpha = value;
           })
           .layoutWeight(1)
+          .selectedColor($r('app.color.brand'))
         Text(`${Math.round(this.alpha * 100)}%`).width(40).fontSize(16).textAlign(TextAlign.End)
       }
       .width('100%')
@@ -627,7 +629,6 @@ struct AddWatermarkPage {
     .width('90%')
     .padding({ top: 8, bottom: 8 })
     .borderRadius(12)
-    
   }
 
   build() {
@@ -718,7 +719,7 @@ struct AddWatermarkPage {
             .height(48)
             .fontSize(18)
             .fontWeight(FontWeight.Medium)
-            .backgroundColor($r('sys.color.background_emphasize'))
+            .backgroundColor($r('app.color.brand'))
             .fontColor(Color.White)
             .borderRadius(24)
             .onClick(() => this.startExport())

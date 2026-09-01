@@ -26,15 +26,27 @@
     },
     {
       "name": "home_card_1",
-      "value": "#FF0087FF"
+      "value": "#FF21C100"
     },
     {
       "name": "home_card_2",
-      "value": "#FF0088FF"
+      "value": "#FF00BE13"
     },
     {
       "name": "home_card_3",
-      "value": "#FF0066FF"
+      "value": "#FF008D0E"
+    },
+    {
+      "name": "selected_tab_button",
+      "value": "#33FFFFFF"
+    },
+    {
+      "name": "unselected_tab_button",
+      "value": "#ff202224"
+    },
+    {
+      "name": "brand_card",
+      "value": "#FF43A740"
     }
   ]
 }

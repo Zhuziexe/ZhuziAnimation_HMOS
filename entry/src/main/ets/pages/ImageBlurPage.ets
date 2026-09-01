@@ -441,10 +441,6 @@ struct ImageBlurPage {
               step: 1,
               value: this.blurStrength
             })
-              .onChange((value: number) => {
-                this.blurStrength = value;
-                // 拖动过程中不触发预览
-              })
               .onChange((value: number, mode: SliderChangeMode) => {
                 this.blurStrength = value;
                 // 只有拖动结束时才触发预览
@@ -453,6 +449,7 @@ struct ImageBlurPage {
                 }
               })
               .layoutWeight(1)
+              .selectedColor($r('app.color.brand'))
             Text(`${this.blurStrength}`).fontSize(16).width(40).textAlign(TextAlign.End)
           }
           .width('100%')
@@ -472,7 +469,7 @@ struct ImageBlurPage {
             .height(48)
             .fontSize(18)
             .fontWeight(FontWeight.Medium)
-            .backgroundColor($r('sys.color.background_emphasize'))
+            .backgroundColor($r('app.color.brand'))
             .fontColor(Color.White)
             .borderRadius(24)
             .onClick(() => this.saveBlurred())

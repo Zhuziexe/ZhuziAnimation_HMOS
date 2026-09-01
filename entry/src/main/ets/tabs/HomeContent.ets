@@ -1,6 +1,7 @@
 @Component
 export struct HomeContent {
   @StorageLink('tabindex') tabindex: number = 1;
+  @StorageLink('toolIndex') toolFilter: number = 0;
 
   private getGreeting(): string {
     const hour = new Date().getHours();
@@ -30,19 +31,50 @@ export struct HomeContent {
             .fontColor($r('sys.color.font_primary'))
             .fontWeight(FontWeight.Bold)
 
-          this.buildCard(
-            '🎬',
-            '视频工具',
-            '裁剪、GIF、水印、模糊...',
-            () => this.goToTools()
-          )
-
-          this.buildCard(
-            '🎞️',
-            '定格动画',
-            '制作定格动画',
-            () => this.goToProjects()
-          )
+          GridRow({
+            breakpoints:{
+              value:["320vp", "640vp", "1280vp"]
+            },
+            gutter:12,
+            direction:GridRowDirection.Row,
+            columns:{
+              xs:1,
+              sm:1,
+              md:2,
+              lg:3
+            }
+          }){
+            GridCol({span:1}){
+              this.buildCard(
+                '🎬',
+                '音视频工具',
+                '裁剪、水印、模糊...',
+                () => {
+                  this.toolFilter = 0;
+                  this.goToTools();
+                }
+              )
+            }
+            GridCol({span:1}){
+              this.buildCard(
+                '🖼️',
+                '图片工具',
+                '新',
+                () => {
+                  this.toolFilter = 1;
+                  this.goToTools();
+                }
+              )
+            }
+            GridCol({span:1}) {
+              this.buildCard(
+                '🎞️',
+                '定格动画',
+                '制作定格动画',
+                () => this.goToProjects()
+              )
+            }
+          }
         }
         .width('100%')
         .padding({ left: 20, right: 20 })
@@ -108,20 +140,7 @@ export struct HomeContent {
     .width('100%')
     .height(120)
     .padding({ left: 24, right: 20 })
-    .linearGradient({
-      angle: 135,
-      colors: [
-        [$r('app.color.home_card_1'), 0.0],
-        [$r('app.color.home_card_2'), 0.5],
-        [$r('app.color.home_card_3'), 1.0]
-      ]
-    })
-    .border({ width: 1, color: 'rgba(255,255,255,0.25)', radius: 20 })
-    .shadow({
-      radius: 30,
-      color: 'rgba(79, 172, 254, 0.35)',
-      offsetY: 10
-    })
+    .backgroundColor($r('app.color.brand_card'))
     .borderRadius(20)
     .onClick(action)
   }

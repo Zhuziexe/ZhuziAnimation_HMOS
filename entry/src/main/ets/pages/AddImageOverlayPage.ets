@@ -1,4 +1,3 @@
-// AddImageWatermarkPage.ets
 import router from '@ohos.router';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
@@ -35,7 +34,7 @@ interface FfmpegError {
 
 // ---------- 进度弹窗 ----------
 @CustomDialog
-struct WatermarkProgressDialog {
+struct OverlayProgressDialog {
   controller: CustomDialogController;
   onCancel: () => void = () => {};
 
@@ -60,7 +59,7 @@ struct WatermarkProgressDialog {
 
 // ---------- 可拖动图片水印组件 ----------
 @Component
-struct DraggableImageWatermark {
+struct DraggableImageOverlay {
   @Prop imageUri: string = '';
   @Prop imageWidth: number = 0;
   @Prop imageHeight: number = 0;
@@ -121,7 +120,7 @@ struct DraggableImageWatermark {
 // ---------- 主页面 ----------
 @Entry
 @Component
-struct AddImageWatermarkPage {
+struct AddImageOverlayPage {
   private context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
   // 从路由参数接收视频URI和图片URI（图片已由调用方选择）
@@ -344,7 +343,7 @@ struct AddImageWatermarkPage {
     this.isExporting = true;
 
     this.progressDialogController = new CustomDialogController({
-      builder: WatermarkProgressDialog({
+      builder: OverlayProgressDialog({
         onCancel: () => {
           if (this.currentSessionId > 0) {
             stopCommand({ sessionId: this.currentSessionId });
@@ -509,6 +508,7 @@ struct AddImageWatermarkPage {
             }
           })
           .layoutWeight(1)
+          .selectedColor($r('app.color.brand'))
         Text(`${Math.round(this.imageScale * 100)}%`).width(50).fontSize(16).textAlign(TextAlign.End)
       }
       .width('100%')
@@ -527,6 +527,7 @@ struct AddImageWatermarkPage {
             this.imageAlpha = value;
           })
           .layoutWeight(1)
+          .selectedColor($r('app.color.brand'))
         Text(`${Math.round(this.imageAlpha * 100)}%`).width(50).fontSize(16).textAlign(TextAlign.End)
       }
       .width('100%')
@@ -599,7 +600,7 @@ struct AddImageWatermarkPage {
               })
 
             if (this.renderInitialized && this.watermarkImagePath) {
-              DraggableImageWatermark({
+              DraggableImageOverlay({
                 imageUri: `file://${this.watermarkImagePath}`,
                 imageWidth: this.displayImageWidth,
                 imageHeight: this.displayImageHeight,
@@ -629,7 +630,7 @@ struct AddImageWatermarkPage {
             .height(48)
             .fontSize(18)
             .fontWeight(FontWeight.Medium)
-            .backgroundColor($r('sys.color.background_emphasize'))
+            .backgroundColor($r('app.color.brand'))
             .fontColor(Color.White)
             .borderRadius(24)
             .onClick(() => this.startExport())

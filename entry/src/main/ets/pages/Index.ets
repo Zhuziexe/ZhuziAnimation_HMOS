@@ -60,17 +60,14 @@ struct Index {
       const newId = Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
       const newFilePath = `${this.context.filesDir}/${newId}.zap`;
 
-      // 重命名 .zap 文件
       const renameSuccess = await this.renameProjectFile(oldFilePath, newFilePath);
       if (!renameSuccess) {
         promptAction.showToast({ message: '重命名文件失败' });
         return;
       }
 
-      // 删除旧项目元数据
       await ProjectManager.deleteProject(project.id);
 
-      // 创建新项目元数据
       const newProject: ProjectMeta = {
         id: newId,
         name: newName,
@@ -80,7 +77,6 @@ struct Index {
       };
       await ProjectManager.upsertProject(newProject);
 
-      // 刷新列表
       await this.loadProjects();
 
       promptAction.showToast({ message: '重命名成功' });
@@ -90,7 +86,6 @@ struct Index {
     }
   }
 
-  // ---------- 其余方法保持不变 ----------
   private readZapHeader(buffer: ArrayBuffer): ZapHeader | null {
     const view = new DataView(buffer);
     let offset = 0;
@@ -254,15 +249,21 @@ struct Index {
     AlertDialog.show({
       title: '确认删除',
       message: `确定要删除项目“${project.name}”吗？`,
-      confirm: {
-        value: '删除',
-        action: async () => {
-          await ProjectManager.deleteProject(project.id);
-          this.projects.splice(index, 1);
-          this.projects = [...this.projects];
+      buttons: [
+        {
+          value:"取消",
+          action:()=>{}
+        },
+        {
+          value:"确定",
+          fontColor:$r('sys.color.warning'),
+          action: async ()=>{
+            await ProjectManager.deleteProject(project.id);
+            this.projects.splice(index, 1);
+            this.projects = [...this.projects];
+          }
         }
-      },
-      cancel: () => {}
+      ]
     });
   }
 
@@ -286,6 +287,18 @@ struct Index {
     }
   }
 
+  buildBottomTabBar(icon: Resource, label: ResourceStr) : BottomTabBarStyle{
+    return BottomTabBarStyle.of({
+      normal: new SymbolGlyphModifier(icon)
+        .renderingStrategy(SymbolRenderingStrategy.SINGLE)
+        .fontColor([$r('sys.color.font_primary')]),
+      selected: new SymbolGlyphModifier(icon)
+        .renderingStrategy(SymbolRenderingStrategy.SINGLE)
+        .fontColor([$r('app.color.brand')])
+    }, label)
+      .labelStyle({ unselectedColor: $r('sys.color.font_primary'),selectedColor: $r('app.color.brand') });
+  }
+
   build() {
     Column() {
       HdsTabs({
@@ -296,28 +309,14 @@ struct Index {
           ToolsContent()
         }
         .tabBar(
-          BottomTabBarStyle.of({
-            normal: new SymbolGlyphModifier($r('sys.symbol.more_fill'))
-              .renderingStrategy(SymbolRenderingStrategy.SINGLE)
-              .fontColor([$r('sys.color.font_primary')]),
-            selected: new SymbolGlyphModifier($r('sys.symbol.more_fill'))
-              .renderingStrategy(SymbolRenderingStrategy.SINGLE)
-          }, $r('app.string.video_tools'))
-            .labelStyle({ unselectedColor: $r('sys.color.font_primary') })
+          this.buildBottomTabBar($r('sys.symbol.more_fill'),$r('app.string.tools_page'))
         )
 
         TabContent() {
           HomeContent()
         }
         .tabBar(
-          BottomTabBarStyle.of({
-            normal: new SymbolGlyphModifier($r('sys.symbol.house_fill'))
-              .renderingStrategy(SymbolRenderingStrategy.SINGLE)
-              .fontColor([$r('sys.color.font_primary')]),
-            selected: new SymbolGlyphModifier($r('sys.symbol.house_fill'))
-              .renderingStrategy(SymbolRenderingStrategy.SINGLE)
-          }, $r('app.string.home_page'))
-            .labelStyle({ unselectedColor: $r('sys.color.font_primary') })
+          this.buildBottomTabBar($r('sys.symbol.house_fill'),$r('app.string.home_page'))
         )
 
         TabContent() {
@@ -448,7 +447,7 @@ struct Index {
               .width(40)
               .height(40)
               .borderRadius(20)
-              .backgroundColor($r('sys.color.brand'))
+              .backgroundColor($r('app.color.brand'))
               .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
               .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
               .margin({ left: 8 })
@@ -472,14 +471,7 @@ struct Index {
           .height('100%')
         }
         .tabBar(
-          BottomTabBarStyle.of({
-            normal: new SymbolGlyphModifier($r('sys.symbol.template_fill'))
-              .renderingStrategy(SymbolRenderingStrategy.SINGLE)
-              .fontColor([$r('sys.color.font_primary')]),
-            selected: new SymbolGlyphModifier($r('sys.symbol.template_fill'))
-              .renderingStrategy(SymbolRenderingStrategy.SINGLE)
-          }, $r('app.string.stop_motion_animation'))
-            .labelStyle({ unselectedColor: $r('sys.color.font_primary') })
+          this.buildBottomTabBar($r('sys.symbol.template_fill'),$r('app.string.stop_motion_animation'))
         )
       }
       .barPosition(BarPosition.End)
