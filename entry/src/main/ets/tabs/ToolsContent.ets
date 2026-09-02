@@ -26,6 +26,7 @@ export struct ToolsContent {
   });
   @StorageLink('toolIndex') selectedIndexes: number[] = [0];
 
+  // ---------- 缓存清理 ----------
   private async cleanToolsCache(): Promise<void> {
     try {
       const cacheDir = this.context.cacheDir;
@@ -61,6 +62,7 @@ export struct ToolsContent {
     }
   }
 
+  // ---------- 选择图片/视频的通用方法 ----------
   private async pickVideo(): Promise<string | null> {
     try {
       const options = new photoAccessHelper.PhotoSelectOptions();
@@ -80,6 +82,26 @@ export struct ToolsContent {
     }
   }
 
+  private async pickImage(): Promise<string | null> {
+    try {
+      const options = new photoAccessHelper.PhotoSelectOptions();
+      options.MIMEType = photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE;
+      options.maxSelectNumber = 1;
+      const photoPicker = new photoAccessHelper.PhotoViewPicker();
+      const result = await photoPicker.select(options);
+      if (result.photoUris.length === 0) {
+        promptAction.showToast({ message: '未选择图片' });
+        return null;
+      }
+      return result.photoUris[0];
+    } catch (err) {
+      console.error('选择图片失败:', err);
+      promptAction.showToast({ message: '选择图片失败' });
+      return null;
+    }
+  }
+
+  // ---------- 视频工具 ----------
   private async pickVideoForInfo() {
     await this.cleanToolsCache();
     const uri = await this.pickVideo();
@@ -124,19 +146,11 @@ export struct ToolsContent {
       const videoUri = await this.pickVideo();
       if (!videoUri) return;
 
-      const imageOptions = new photoAccessHelper.PhotoSelectOptions();
-      imageOptions.MIMEType = photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE;
-      imageOptions.maxSelectNumber = 1;
-      const imagePicker = new photoAccessHelper.PhotoViewPicker();
-      const imageResult = await imagePicker.select(imageOptions);
-      if (!imageResult || imageResult.photoUris.length === 0) {
-        promptAction.showToast({ message: '未选择图片' });
-        return;
-      }
-      const imageUri = imageResult.photoUris[0];
+      const imageUri = await this.pickImage();
+      if (!imageUri) return;
 
       router.pushUrl({
-        url: 'pages/AddImageOverlayPage',
+        url: 'pages/VideoOverlayPage',
         params: {
           videoUri: videoUri,
           imageUri: imageUri
@@ -185,21 +199,36 @@ export struct ToolsContent {
     this.videoMuteDialogController.open();
   }
 
-  private async pickImageForBlur() {
+  private async pickImageForOverlay() {
     try {
       await this.cleanToolsCache();
-      const options = new photoAccessHelper.PhotoSelectOptions();
-      options.MIMEType = photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE;
-      options.maxSelectNumber = 1;
-      const photoPicker = new photoAccessHelper.PhotoViewPicker();
-      const result = await photoPicker.select(options);
-      if (result.photoUris.length === 0) {
-        promptAction.showToast({ message: '未选择图片' });
-        return;
-      }
-      const uri = result.photoUris[0];
+      const baseUri = await this.pickImage();
+      if (!baseUri) return;
+
+      const overlayUri = await this.pickImage();
+      if (!overlayUri) return;
+
       router.pushUrl({
-        url: 'pages/ImageBlurPage',
+        url: 'pages/ImageOverlayPage',
+        params: {
+          baseImageUri: baseUri,
+          overlayImageUri: overlayUri
+        }
+      });
+    } catch (err) {
+      console.error('选择图片失败:', err);
+      promptAction.showToast({ message: '选择图片失败' });
+    }
+  }
+
+  // 保留原有的图片模糊
+  private async pickImageForPage(pageUrl: string) {
+    try {
+      await this.cleanToolsCache();
+      const uri = await this.pickImage();
+      if (!uri) return;
+      router.pushUrl({
+        url: pageUrl,
         params: { imageUri: uri }
       });
     } catch (err) {
@@ -208,6 +237,7 @@ export struct ToolsContent {
     }
   }
 
+  // ---------- UI 构建 ----------
   @Builder
   buildTool(toolIcon: Resource, toolName: string, toolAction: () => void) {
     Row() {
@@ -247,6 +277,7 @@ export struct ToolsContent {
   build() {
     Stack() {
       List({ space: 12 }) {
+        // ---------- 音视频 Tab ----------
         if(this.selectedIndexes[0] == 0) {
           ListItem() {
             Column() {
@@ -270,8 +301,8 @@ export struct ToolsContent {
                 this.pickVideoForPage('pages/VideoRotatePage');
               });
               this.buildDivider();
-              this.buildTool($r('sys.symbol.character_square'), "添加文字水印", () => {
-                this.pickVideoForPage('pages/AddWatermarkPage');
+              this.buildTool($r('sys.symbol.character_square'), "视频文字水印", () => {
+                this.pickVideoForPage('pages/VideoWatermarkPage');
               });
               this.buildDivider();
               this.buildTool($r('sys.symbol.star_square_on_square'), "叠加图片到视频", () => {
@@ -296,11 +327,25 @@ export struct ToolsContent {
           }
           .padding({ left: 12, right: 12 })
         }
+
+        // ---------- 图片 Tab ----------
         if(this.selectedIndexes[0] == 1) {
           ListItem() {
             Column() {
+              this.buildTool($r('sys.symbol.rotate_left'), "图片旋转", () => {
+                this.pickImageForPage('pages/ImageRotatePage');
+              });
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.character_square'), "图片文字水印", () => {
+                this.pickImageForPage('pages/ImageWatermarkPage');
+              });
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.star_square_on_square'), "图片叠加", () => {
+                this.pickImageForOverlay();
+              });
+              this.buildDivider();
               this.buildTool($r('sys.symbol.square_split_2x1_dash'), "图片区域模糊", () => {
-                this.pickImageForBlur();
+                this.pickImageForPage('pages/ImageBlurPage');
               });
             }
             .backgroundColor($r('app.color.listitem'))
@@ -315,6 +360,8 @@ export struct ToolsContent {
       .alignListItem(ListItemAlign.Center)
       .contentStartOffset(110)
       .contentEndOffset(80)
+
+      // 标题栏和分段按钮（保持不变）
       Column({space:4}) {
         Row() {
           Text($r('app.string.tools_page'))
@@ -328,9 +375,9 @@ export struct ToolsContent {
           options: this.tabOptions,
           selectedIndexes: this.selectedIndexes
         })
-        .width('100%')
-        .height(40)
-        .padding(2)
+          .width('100%')
+          .height(40)
+          .padding(2)
       }
       .width('100%')
       .padding({ left: 16, right: 16 })

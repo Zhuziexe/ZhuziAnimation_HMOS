@@ -6,9 +6,12 @@
     "pages/FrameCapturePage",
     "pages/VideoCropPage",
     "pages/VideoRotatePage",
-    "pages/AddWatermarkPage",
-    "pages/AddImageOverlayPage",
+    "pages/VideoWatermarkPage",
+    "pages/VideoOverlayPage",
     "pages/VideoBlurPage",
-    "pages/ImageBlurPage"
+    "pages/ImageBlurPage",
+    "pages/ImageOverlayPage",
+    "pages/ImageRotatePage",
+    "pages/ImageWatermarkPage"
   ]
 }
