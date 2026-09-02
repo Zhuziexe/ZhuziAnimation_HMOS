@@ -4,30 +4,7 @@ import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { promptAction } from '@kit.ArkUI';
 import { executeCommand, stopCommand, executeCommandSync, CommandSyncResult } from '@tyousan/ffmpeg';
-
-@CustomDialog
-struct RotateProgressDialog {
-  controller: CustomDialogController;
-  onCancel: () => void = () => {};
-
-  build() {
-    Column({ space: 16 }) {
-      LoadingProgress().width(48).height(48)
-      Text('旋转中...').fontSize(18).fontColor($r('sys.color.font_primary'))
-      Text('旋转视频可能需要一些时间。').fontSize(14).fontColor($r('sys.color.font_secondary'))
-      Button('取消')
-        .buttonStyle(ButtonStyleMode.TEXTUAL)
-        .onClick(() => {
-          this.onCancel();
-          this.controller.close();
-        })
-        .width(120)
-    }
-    .padding(24)
-    .borderRadius(12)
-    .backgroundColor($r('sys.color.background_tertiary'))
-  }
-}
+import { ProcessingDialog } from '../components/ProcessingDialog';
 
 @Entry
 @Component
@@ -159,22 +136,27 @@ struct VideoRotatePage {
     return ['-i', inputPath, '-vf', filter, '-c:a', 'copy', '-y', outputPath];
   }
 
+  private cancelProcess(): void {
+    if (this.currentSessionId > 0) {
+      stopCommand({ sessionId: this.currentSessionId });
+    }
+    this.cancelFlag = true;
+  }
+
   private startRotate() {
     if (this.isRotating) return;
     this.cancelFlag = false;
     this.isRotating = true;
 
     this.progressDialogController = new CustomDialogController({
-      builder: RotateProgressDialog({
-        onCancel: () => {
-          if (this.currentSessionId > 0) {
-            stopCommand({ sessionId: this.currentSessionId });
-          }
-          this.cancelFlag = true;
-        }
+      builder: ProcessingDialog({
+        processingText:'旋转视频中...',
+        secondaryText:'旋转视频可能需要一些时间。',
+        onCancel: () => this.cancelProcess()
       }),
       autoCancel: false,
       customStyle: true,
+      cancel: ()=>this.cancelProcess()
     });
     this.progressDialogController.open();
 

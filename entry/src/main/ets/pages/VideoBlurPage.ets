@@ -6,36 +6,13 @@ import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { promptAction } from '@kit.ArkUI';
 import { executeCommand, stopCommand, executeCommandSync, CommandSyncResult } from '@tyousan/ffmpeg';
 import { getVideoInfo } from '../common/VideoUtils';
+import { ProcessingDialog } from '../components/ProcessingDialog';
 
 interface CropRect {
   x: number;
   y: number;
   width: number;
   height: number;
-}
-
-@CustomDialog
-struct BlurProgressDialog {
-  controller: CustomDialogController;
-  onCancel: () => void = () => {};
-
-  build() {
-    Column({ space: 16 }) {
-      LoadingProgress().width(48).height(48)
-      Text('模糊处理中...').fontSize(18).fontColor($r('sys.color.font_primary'))
-      Text('模糊视频区域可能需要一些时间。').fontSize(14).fontColor($r('sys.color.font_secondary'))
-      Button('取消')
-        .buttonStyle(ButtonStyleMode.TEXTUAL)
-        .onClick(() => {
-          this.onCancel();
-          this.controller.close();
-        })
-        .width(120)
-    }
-    .padding(24)
-    .borderRadius(12)
-    .backgroundColor($r('sys.color.background_tertiary'))
-  }
 }
 
 @Entry
@@ -197,6 +174,13 @@ struct VideoBlurPage {
     this.updateCrop(newCrop);
   }
 
+  private cancelProcess(): void{
+    if (this.currentSessionId > 0) {
+      stopCommand({ sessionId: this.currentSessionId });
+    }
+    this.cancelFlag = true;
+  }
+
   private doBlurAsync() {
     if (this.isExporting) return;
     if (this.crop.width < 10 || this.crop.height < 10) {
@@ -208,16 +192,14 @@ struct VideoBlurPage {
     this.isExporting = true;
 
     this.progressDialogController = new CustomDialogController({
-      builder: BlurProgressDialog({
-        onCancel: () => {
-          if (this.currentSessionId > 0) {
-            stopCommand({ sessionId: this.currentSessionId });
-          }
-          this.cancelFlag = true;
-        }
+      builder: ProcessingDialog({
+        processingText:'模糊处理中...',
+        secondaryText:'视频区域模糊可能需要一些时间。',
+        onCancel: ()=>this.cancelProcess()
       }),
       autoCancel: false,
       customStyle: true,
+      cancel: ()=>this.cancelProcess()
     });
     this.progressDialogController.open();
 
@@ -478,7 +460,7 @@ struct VideoBlurPage {
               .width(70)
             Slider({
               min: 1,
-              max: 20,
+              max: 40,
               step: 1,
               value: this.blurStrength
             })
@@ -551,7 +533,7 @@ struct BlurOverlay {
     ctx.clearRect(0, 0, w, h);
     const c = this.cropRect;
     // 只填充选中区域（半透明黑色，表示要模糊）
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.fillRect(c.x, c.y, c.width, c.height);
     // 绘制白色边框和手柄
     ctx.strokeStyle = '#FFFFFF';

@@ -6,7 +6,7 @@ import { fileIo as fs } from '@kit.CoreFileKit';
 import { ExtractAudioDialog } from '../components/ExtractAudioDialog';
 import { VideoMuteDialog } from '../components/VideoMuteDialog';
 import { GifSettingsDialog } from '../components/VideoToGifDialog';
-import { SegmentButton, SegmentButtonOptions } from '@kit.ArkUI';
+import { SegmentButtonItemTuple, SegmentButton, SegmentButtonOptions } from '@kit.ArkUI';
 
 @Component
 export struct ToolsContent {
@@ -15,9 +15,16 @@ export struct ToolsContent {
   private videoMuteDialogController: CustomDialogController | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
-
-
-  @StorageLink('toolIndex') currentFilter : number = 0;
+  @State tabOptions: SegmentButtonOptions = SegmentButtonOptions.capsule({
+    buttons: [
+      { text: '音视频' },
+      { text: '图片' }
+    ] as SegmentButtonItemTuple,
+    selectedFontColor:$r('sys.color.font_primary'),
+    backgroundColor: $r('app.color.unselected_tab_button'),
+    selectedBackgroundColor:$r('app.color.selected_tab_button')
+  });
+  @StorageLink('toolIndex') selectedIndexes: number[] = [0];
 
   private async cleanToolsCache(): Promise<void> {
     try {
@@ -240,7 +247,7 @@ export struct ToolsContent {
   build() {
     Stack() {
       List({ space: 12 }) {
-        if(this.currentFilter == 0) {
+        if(this.selectedIndexes[0] == 0) {
           ListItem() {
             Column() {
               this.buildTool($r('sys.symbol.list_bullet'), "获取视频属性", () => {
@@ -289,7 +296,7 @@ export struct ToolsContent {
           }
           .padding({ left: 12, right: 12 })
         }
-        if(this.currentFilter == 1) {
+        if(this.selectedIndexes[0] == 1) {
           ListItem() {
             Column() {
               this.buildTool($r('sys.symbol.square_split_2x1_dash'), "图片区域模糊", () => {
@@ -317,22 +324,10 @@ export struct ToolsContent {
             .layoutWeight(1)
         }
         .height(56)
-        Row({space:2}){
-          Button('音视频')
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-            .backgroundColor(this.currentFilter == 0? $r('app.color.selected_tab_button') : $r('app.color.unselected_tab_button'))
-            .onClick(()=>{this.currentFilter = 0;})
-            .stateEffect(false)
-          Button('图片')
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-            .backgroundColor(this.currentFilter == 1? $r('app.color.selected_tab_button') : $r('app.color.unselected_tab_button'))
-            .onClick(()=>{this.currentFilter = 1;})
-            .stateEffect(false)
-        }
-        .borderRadius(20)
-        .backgroundColor($r('app.color.unselected_tab_button'))
+        SegmentButton({
+          options: this.tabOptions,
+          selectedIndexes: this.selectedIndexes
+        })
         .width('100%')
         .height(40)
         .padding(2)

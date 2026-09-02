@@ -8,6 +8,7 @@ import { executeCommand, stopCommand, executeCommandSync, CommandSyncResult } fr
 import { getVideoInfo } from '../common/VideoUtils';
 import { util } from '@kit.ArkTS';
 import { PickColorDialog } from '../components/PickColorDialog';
+import { ProcessingDialog } from '../components/ProcessingDialog';
 
 // ---------- 接口定义 ----------
 interface RenderRect {
@@ -31,31 +32,6 @@ interface FfmpegError {
   errCode?: number | string;
   message?: string;
   stderr?: string;
-}
-
-// ---------- 进度弹窗 ----------
-@CustomDialog
-struct WatermarkProgressDialog {
-  controller: CustomDialogController;
-  onCancel: () => void = () => {};
-
-  build() {
-    Column({ space: 16 }) {
-      LoadingProgress().width(48).height(48)
-      Text('添加水印中...').fontSize(18).fontColor($r('sys.color.font_primary'))
-      Text('处理视频可能需要一些时间。').fontSize(14).fontColor($r('sys.color.font_secondary'))
-      Button('取消')
-        .buttonStyle(ButtonStyleMode.TEXTUAL)
-        .onClick(() => {
-          this.onCancel();
-          this.controller.close();
-        })
-        .width(120)
-    }
-    .padding(24)
-    .borderRadius(12)
-    .backgroundColor($r('sys.color.background_tertiary'))
-  }
 }
 
 // ---------- 可拖动水印组件（带边框） ----------
@@ -357,6 +333,13 @@ struct AddWatermarkPage {
     return ['-i', inputPath, '-i', watermarkPath, '-filter_complex', filter, '-c:a', 'copy', '-y', outputPath];
   }
 
+  private cancelProcess():void{
+    if (this.currentSessionId > 0) {
+      stopCommand({ sessionId: this.currentSessionId });
+    }
+    this.cancelFlag = true;
+  }
+
   // ---------- 导出 ----------
   private async startExport() {
     if (this.isExporting) return;
@@ -369,16 +352,14 @@ struct AddWatermarkPage {
     this.isExporting = true;
 
     this.progressDialogController = new CustomDialogController({
-      builder: WatermarkProgressDialog({
-        onCancel: () => {
-          if (this.currentSessionId > 0) {
-            stopCommand({ sessionId: this.currentSessionId });
-          }
-          this.cancelFlag = true;
-        }
+      builder: ProcessingDialog({
+        processingText:'添加水印中...',
+        secondaryText:'添加水印可能需要一些时间。',
+        onCancel: () => this.cancelProcess()
       }),
       autoCancel: false,
       customStyle: true,
+      cancel:()=>this.cancelProcess()
     });
     this.progressDialogController.open();
 

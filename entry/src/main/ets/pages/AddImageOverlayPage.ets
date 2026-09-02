@@ -7,6 +7,7 @@ import { executeCommand, stopCommand, executeCommandSync, CommandSyncResult } fr
 import { getVideoInfo } from '../common/VideoUtils';
 import { image } from '@kit.ImageKit';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { ProcessingDialog } from '../components/ProcessingDialog';
 
 // ---------- 接口定义 ----------
 interface RenderRect {
@@ -30,31 +31,6 @@ interface FfmpegError {
   errCode?: number | string;
   message?: string;
   stderr?: string;
-}
-
-// ---------- 进度弹窗 ----------
-@CustomDialog
-struct OverlayProgressDialog {
-  controller: CustomDialogController;
-  onCancel: () => void = () => {};
-
-  build() {
-    Column({ space: 16 }) {
-      LoadingProgress().width(48).height(48)
-      Text('叠加图片中...').fontSize(18).fontColor($r('sys.color.font_primary'))
-      Text('处理视频可能需要一些时间。').fontSize(14).fontColor($r('sys.color.font_secondary'))
-      Button('取消')
-        .buttonStyle(ButtonStyleMode.TEXTUAL)
-        .onClick(() => {
-          this.onCancel();
-          this.controller.close();
-        })
-        .width(120)
-    }
-    .padding(24)
-    .borderRadius(12)
-    .backgroundColor($r('sys.color.background_tertiary'))
-  }
 }
 
 // ---------- 可拖动图片水印组件 ----------
@@ -326,12 +302,17 @@ struct AddImageOverlayPage {
     const w = Math.round(this.originalImageWidth * this.imageScale);
     const h = Math.round(this.originalImageHeight * this.imageScale);
     const alpha = Math.max(0.0, Math.min(1.0, this.imageAlpha));
-    // 使用 colorchannelmixer 调整 alpha 通道
     const filter = `[1:v]scale=${w}:${h},format=rgba,colorchannelmixer=aa=${alpha}[wm];[0:v][wm]overlay=${x}:${y}`;
     return ['-i', inputPath, '-i', watermarkPath, '-filter_complex', filter, '-c:a', 'copy', '-y', outputPath];
   }
 
-  // ---------- 导出 ----------
+  private cancelProcess():void{
+    if (this.currentSessionId > 0) {
+      stopCommand({ sessionId: this.currentSessionId });
+    }
+    this.cancelFlag = true;
+  }
+
   private async startExport() {
     if (this.isExporting) return;
     if (!this.watermarkImagePath) {
@@ -343,16 +324,14 @@ struct AddImageOverlayPage {
     this.isExporting = true;
 
     this.progressDialogController = new CustomDialogController({
-      builder: OverlayProgressDialog({
-        onCancel: () => {
-          if (this.currentSessionId > 0) {
-            stopCommand({ sessionId: this.currentSessionId });
-          }
-          this.cancelFlag = true;
-        }
+      builder: ProcessingDialog({
+        processingText:'叠加图片中...',
+        secondaryText:'叠加图片可能需要一些时间。',
+        onCancel: () => this.cancelProcess()
       }),
       autoCancel: false,
       customStyle: true,
+      cancel: ()=>this.cancelProcess()
     });
     this.progressDialogController.open();
 

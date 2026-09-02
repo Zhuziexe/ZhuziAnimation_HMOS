@@ -3,36 +3,8 @@ import { common } from '@kit.AbilityKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { VideoToGIF } from '../common/VideoUtils';
-
-// ---------- 进度弹窗 ----------
-@CustomDialog
-export struct GifProgressDialog {
-  controller: CustomDialogController;
-  cancelCallback: () => void = () => {};
-
-  build() {
-    Column({ space: 16 }) {
-      LoadingProgress()
-        .width(48)
-        .height(48)
-      Text('转换中...')
-        .fontSize(18)
-        .fontColor($r('sys.color.font_primary'))
-      Text('转换为GIF可能需要一段时间。')
-        .fontSize(14)
-        .fontColor($r('sys.color.font_secondary'))
-      Button('取消')
-        .buttonStyle(ButtonStyleMode.TEXTUAL)
-        .onClick(() => {
-          this.cancelCallback();
-          this.controller.close();
-        })
-        .width('100%')
-    }
-    .padding(24)
-    .borderRadius(12)
-  }
-}
+import { process } from '@kit.ArkTS';
+import { ProcessingDialog } from './ProcessingDialog';
 
 // ---------- 设置弹窗 ----------
 @CustomDialog
@@ -130,13 +102,17 @@ export struct GifSettingsDialog {
   }
 
   private startConversion() {
-    // 显示进度弹窗
     this.progressDialogController = new CustomDialogController({
-      builder: GifProgressDialog({
-        cancelCallback: () => {
+      builder: ProcessingDialog({
+        processingText:'转换中...',
+        secondaryText:'转换为GIF可能需要一些时间。',
+        onCancel: () => {
           this.taskCancel?.();   // 触发取消
         }
-      })
+      }),
+      autoCancel: false,
+      customStyle: true,
+      cancel: ()=>{this.taskCancel?.();}
     });
     this.progressDialogController.open();
 

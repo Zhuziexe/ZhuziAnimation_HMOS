@@ -5,6 +5,7 @@ import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { promptAction } from '@kit.ArkUI';
 import { executeCommand, stopCommand, executeCommandSync, CommandSyncResult } from '@tyousan/ffmpeg';
 import { getVideoInfo } from '../common/VideoUtils';
+import { ProcessingDialog } from '../components/ProcessingDialog';
 
 interface CropRect {
   x: number;
@@ -16,30 +17,6 @@ interface CropRect {
 interface Preset {
   label: string;
   ratio: number;
-}
-
-@CustomDialog
-struct CropProgressDialog {
-  controller: CustomDialogController;
-  onCancel: () => void = () => {};
-
-  build() {
-    Column({ space: 16 }) {
-      LoadingProgress().width(48).height(48)
-      Text('裁剪中...').fontSize(18).fontColor($r('sys.color.font_primary'))
-      Text('裁剪视频可能需要一些时间。').fontSize(14).fontColor($r('sys.color.font_secondary'))
-      Button('取消')
-        .buttonStyle(ButtonStyleMode.TEXTUAL)
-        .onClick(() => {
-          this.onCancel();
-          this.controller.close();
-        })
-        .width(120)
-    }
-    .padding(24)
-    .borderRadius(12)
-    .backgroundColor($r('sys.color.background_tertiary'))
-  }
 }
 
 @Entry
@@ -233,6 +210,13 @@ struct VideoCropPage {
     this.updatePixelInfo(rect);
   }
 
+  private cancelProcess():void{
+    if (this.currentSessionId > 0) {
+      stopCommand({ sessionId: this.currentSessionId });
+    }
+    this.cancelFlag = true;
+  }
+
   private doCropAsync() {
     if (this.isExporting) return;
     if (this.crop.width < 10 || this.crop.height < 10) {
@@ -244,16 +228,14 @@ struct VideoCropPage {
     this.isExporting = true;
 
     this.progressDialogController = new CustomDialogController({
-      builder: CropProgressDialog({
-        onCancel: () => {
-          if (this.currentSessionId > 0) {
-            stopCommand({ sessionId: this.currentSessionId });
-          }
-          this.cancelFlag = true;
-        }
+      builder: ProcessingDialog({
+        processingText:'裁剪视频中...',
+        secondaryText:'裁剪视频可能需要一些时间。',
+        onCancel: () => this.cancelProcess()
       }),
       autoCancel: false,
       customStyle: true,
+      cancel: ()=>this.cancelProcess()
     });
     this.progressDialogController.open();
 

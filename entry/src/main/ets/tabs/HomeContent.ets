@@ -1,7 +1,7 @@
 @Component
 export struct HomeContent {
   @StorageLink('tabindex') tabindex: number = 1;
-  @StorageLink('toolIndex') toolFilter: number = 0;
+  @StorageLink('toolIndex') toolIndex: number[] = [0];
 
   private getGreeting(): string {
     const hour = new Date().getHours();
@@ -50,7 +50,7 @@ export struct HomeContent {
                 '音视频工具',
                 '裁剪、水印、模糊...',
                 () => {
-                  this.toolFilter = 0;
+                  this.toolIndex = [0];
                   this.goToTools();
                 }
               )
@@ -59,9 +59,9 @@ export struct HomeContent {
               this.buildCard(
                 '🖼️',
                 '图片工具',
-                '新',
+                '新功能上线',
                 () => {
-                  this.toolFilter = 1;
+                  this.toolIndex = [1];
                   this.goToTools();
                 }
               )
