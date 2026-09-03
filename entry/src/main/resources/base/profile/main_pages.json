@@ -14,6 +14,8 @@
     "pages/ImageRotatePage",
     "pages/ImageWatermarkPage",
     "pages/ImageStretchPage",
-    "pages/VideoSpeedPage"
+    "pages/VideoSpeedPage",
+    "pages/ImageColorPage",
+    "pages/ImageColorPickerPage"
   ]
 }

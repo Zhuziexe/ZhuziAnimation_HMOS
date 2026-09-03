@@ -1,7 +1,7 @@
 import { RenderRect } from '../common/CommonInterfaces';
 
 @Component
-export struct BlurOverlay {
+export struct CropOverlay {
   @Prop @Watch('onCropChanged') cropRect: RenderRect = { x: 0, y: 0, width: 0, height: 0 };
   @Prop @Watch('onSizeChanged') imageWidth: number = 0;
   @Prop @Watch('onSizeChanged') imageHeight: number = 0;
@@ -24,10 +24,13 @@ export struct BlurOverlay {
     if (!ctx || w === 0 || h === 0) return;
     ctx.clearRect(0, 0, w, h);
     const c = this.cropRect;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, w, c.y);
+    ctx.fillRect(0, c.y + c.height, w, h - c.y - c.height);
+    ctx.fillRect(0, c.y, c.x, c.height);
+    ctx.fillRect(c.x + c.width, c.y, w - c.x - c.width, c.height);
     ctx.strokeStyle = '#FFFFFF';
     ctx.lineWidth = 2;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    ctx.fillRect(c.x, c.y, c.width, c.height);
     ctx.strokeRect(c.x, c.y, c.width, c.height);
     const handleSize = 20;
     ctx.fillStyle = '#FFFFFF';

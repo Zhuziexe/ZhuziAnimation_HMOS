@@ -39,6 +39,7 @@ struct BlurResultDialog {
         .width('100%')
       Button('关闭')
         .buttonStyle(ButtonStyleMode.TEXTUAL)
+        .fontColor($r('app.color.brand'))
         .onClick(() => {
           this.onClose();
           this.controller?.close();

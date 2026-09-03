@@ -348,6 +348,14 @@ export struct ToolsContent {
               this.buildTool($r('sys.symbol.celiakeyboard_menu_icon_size'),"图片缩放",()=>{
                 this.pickImageForPage('pages/ImageStretchPage');
               })
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.camera_filters'),"迷幻变色",()=>{
+                this.pickImageForPage('pages/ImageColorPage');
+              });
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.eyedropper'), "图片取色器", () => {
+                this.pickImageForPage('pages/ImageColorPickerPage');
+              });
             }
             .backgroundColor($r('app.color.listitem'))
             .borderRadius(16)
