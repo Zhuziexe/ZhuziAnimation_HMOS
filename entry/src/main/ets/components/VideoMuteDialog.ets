@@ -11,7 +11,6 @@ export struct VideoMuteDialog {
   videoUri: string = ''; // 由外部传入
 
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-  @State status: 'processing' | 'saving' | 'done' = 'processing';
   private currentSessionId: number = -1;
   private cancelFlag: boolean = false;
   private isPageAlive: boolean = true;
@@ -111,7 +110,6 @@ export struct VideoMuteDialog {
 
   private async saveVideo(filePath: string) {
     try {
-      this.status = 'saving';
       const phHelper = photoAccessHelper.getPhotoAccessHelper(this.context);
       const configs: photoAccessHelper.PhotoCreationConfig[] = [
         {
@@ -150,20 +148,19 @@ export struct VideoMuteDialog {
 
   build() {
     Column({ space: 16 }) {
-      if (this.status === 'processing') {
-        LoadingProgress().width(48).height(48)
-        Text('静音处理中，请稍候...').fontSize(14).fontColor($r('sys.color.font_secondary'))
-        Button('取消').onClick(() => {
+      LoadingProgress().width(48).height(48)
+      Text('静音处理中...').fontSize(14).fontColor($r('sys.color.font_primary'))
+      Button('取消')
+        .width(120)
+        .buttonStyle(ButtonStyleMode.TEXTUAL)
+        .fontColor($r('app.color.brand'))
+        .onClick(() => {
           if (this.currentSessionId > 0) {
             stopCommand({ sessionId: this.currentSessionId });
           }
           this.cancelFlag = true;
           this.controller.close();
         })
-      } else if (this.status === 'saving') {
-        LoadingProgress().width(48).height(48)
-        Text('正在弹出保存窗口...').fontSize(16).fontColor($r('sys.color.font_primary'))
-      }
     }
     .padding(24)
   }

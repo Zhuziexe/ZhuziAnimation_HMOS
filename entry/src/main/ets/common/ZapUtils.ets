@@ -87,7 +87,7 @@ export class ZapUtils {
       }
 
       // 回填表：先移动文件指针到表头，再写入
-      fileIo.lseek(file.fd, tableOffset, 0); // SEEK_SET
+      fileIo.lseek(file.fd, tableOffset, 0);
       const offsetBuffer = new Uint32Array(offsets);
       const sizeBuffer = new Uint32Array(sizes);
       const tableData = new Uint8Array(offsets.length * 4 + sizes.length * 4);
@@ -96,10 +96,10 @@ export class ZapUtils {
       fileIo.writeSync(file.fd, tableData.buffer);
 
       fileIo.closeSync(file);
-      console.info('ZAP 保存成功');
+      console.info('ZHUZIANI 保存成功');
       return true;
     } catch (e) {
-      console.error('保存ZAP失败:', e);
+      console.error('保存ZHUZIANI失败:', e);
       return false;
     }
   }
@@ -118,7 +118,7 @@ export class ZapUtils {
       // 解析头部（与原来相同）
       const magic = new Uint8Array(buffer, offset, 4);
       if (magic[0] !== 0x5A || magic[1] !== 0x41 || magic[2] !== 0x50 || magic[3] !== 0x31) {
-        console.error('无效的ZAP文件: 魔数错误');
+        console.error('无效的ZHUZIANI文件: 魔数错误');
         return null;
       }
       offset += 4;
@@ -188,7 +188,7 @@ export class ZapUtils {
 
       return { frames, fps, ratioIndex };
     } catch (e) {
-      console.error('加载ZAP失败:', e);
+      console.error('加载ZHUZIANI失败:', e);
       return null;
     }
   }

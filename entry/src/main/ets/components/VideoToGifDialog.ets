@@ -69,6 +69,7 @@ export struct GifSettingsDialog {
           step: 0.5,
           value: this.maxLength
         })
+          .selectedColor($r('app.color.brand'))
           .onChange((value: number) => { this.maxLength = value; })
           .layoutWeight(1)
         Text(`${this.maxLength.toFixed(1)}秒`)
@@ -79,6 +80,7 @@ export struct GifSettingsDialog {
       Row() {
         Text('两步法调色盘').layoutWeight(1)
         Toggle({ type: ToggleType.Switch, isOn: this.useTwoSteps })
+          .selectedColor($r('app.color.brand'))
           .onChange((isOn: boolean) => { this.useTwoSteps = isOn; })
       }
 
@@ -87,8 +89,10 @@ export struct GifSettingsDialog {
           .onClick(() => this.controller.close())
           .buttonStyle(ButtonStyleMode.NORMAL)
           .layoutWeight(1)
+          .fontColor($r('app.color.brand'))
 
         Button('转换')
+          .backgroundColor($r('app.color.brand'))
           .onClick(() => {
             this.controller.close();
             this.startConversion();

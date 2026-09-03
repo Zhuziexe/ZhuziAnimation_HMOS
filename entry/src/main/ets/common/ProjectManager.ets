@@ -7,6 +7,7 @@ export interface ProjectMeta {
   filePath: string;
   lastModified: number;
   frameCount: number;
+  size?: number;
 }
 
 export class ProjectManager {
@@ -26,7 +27,16 @@ export class ProjectManager {
       const stat = fileIo.statSync(filePath);
       if (stat.size === 0) return [];
       const data = fileIo.readTextSync(filePath);
-      return JSON.parse(data) as ProjectMeta[];
+      const projects = JSON.parse(data) as ProjectMeta[];
+      for (const p of projects) {
+        try {
+          const fileStat = fileIo.statSync(p.filePath);
+          p.size = fileStat.size;
+        } catch {
+          p.size = 0;
+        }
+      }
+      return projects;
     } catch (e) {
       return [];
     }

@@ -12,6 +12,8 @@
     "pages/ImageBlurPage",
     "pages/ImageOverlayPage",
     "pages/ImageRotatePage",
-    "pages/ImageWatermarkPage"
+    "pages/ImageWatermarkPage",
+    "pages/ImageStretchPage",
+    "pages/VideoSpeedPage"
   ]
 }

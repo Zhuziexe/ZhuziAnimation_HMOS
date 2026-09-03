@@ -2,7 +2,7 @@ import { getVideoInfo } from '../common/VideoUtils';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { common } from '@kit.AbilityKit';
 import { promptAction, router } from '@kit.ArkUI';
-import { fileIo as fs } from '@kit.CoreFileKit';
+import { fileIo as fs, picker } from '@kit.CoreFileKit';
 import { ExtractAudioDialog } from '../components/ExtractAudioDialog';
 import { VideoMuteDialog } from '../components/VideoMuteDialog';
 import { GifSettingsDialog } from '../components/VideoToGifDialog';
@@ -26,7 +26,6 @@ export struct ToolsContent {
   });
   @StorageLink('toolIndex') selectedIndexes: number[] = [0];
 
-  // ---------- 缓存清理 ----------
   private async cleanToolsCache(): Promise<void> {
     try {
       const cacheDir = this.context.cacheDir;
@@ -62,7 +61,6 @@ export struct ToolsContent {
     }
   }
 
-  // ---------- 选择图片/视频的通用方法 ----------
   private async pickVideo(): Promise<string | null> {
     try {
       const options = new photoAccessHelper.PhotoSelectOptions();
@@ -101,7 +99,6 @@ export struct ToolsContent {
     }
   }
 
-  // ---------- 视频工具 ----------
   private async pickVideoForInfo() {
     await this.cleanToolsCache();
     const uri = await this.pickVideo();
@@ -221,7 +218,6 @@ export struct ToolsContent {
     }
   }
 
-  // 保留原有的图片模糊
   private async pickImageForPage(pageUrl: string) {
     try {
       await this.cleanToolsCache();
@@ -237,7 +233,6 @@ export struct ToolsContent {
     }
   }
 
-  // ---------- UI 构建 ----------
   @Builder
   buildTool(toolIcon: Resource, toolName: string, toolAction: () => void) {
     Row() {
@@ -277,7 +272,6 @@ export struct ToolsContent {
   build() {
     Stack() {
       List({ space: 12 }) {
-        // ---------- 音视频 Tab ----------
         if(this.selectedIndexes[0] == 0) {
           ListItem() {
             Column() {
@@ -313,6 +307,10 @@ export struct ToolsContent {
                 this.pickVideoForPage('pages/VideoBlurPage');
               });
               this.buildDivider();
+              this.buildTool($r('sys.symbol.video_speed'), "视频变速", () => {
+                this.pickVideoForPage('pages/VideoSpeedPage');
+              });
+              this.buildDivider();
               this.buildTool($r('sys.symbol.music_slash_fill'), "去除视频音频", () => {
                 this.pickVideoForMute();
               });
@@ -328,7 +326,6 @@ export struct ToolsContent {
           .padding({ left: 12, right: 12 })
         }
 
-        // ---------- 图片 Tab ----------
         if(this.selectedIndexes[0] == 1) {
           ListItem() {
             Column() {
@@ -347,6 +344,10 @@ export struct ToolsContent {
               this.buildTool($r('sys.symbol.square_split_2x1_dash'), "图片区域模糊", () => {
                 this.pickImageForPage('pages/ImageBlurPage');
               });
+              this.buildDivider();
+              this.buildTool($r('sys.symbol.celiakeyboard_menu_icon_size'),"图片缩放",()=>{
+                this.pickImageForPage('pages/ImageStretchPage');
+              })
             }
             .backgroundColor($r('app.color.listitem'))
             .borderRadius(16)

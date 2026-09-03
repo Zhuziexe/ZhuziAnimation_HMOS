@@ -11,7 +11,7 @@ import { common } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { ProjectManager, ProjectMeta } from '../common/ProjectManager';
 import { ZapUtils } from '../common/ZapUtils';
-import { promptAction } from '@kit.ArkUI';
+import { ComposeTitleBar, promptAction } from '@kit.ArkUI';
 import { image } from '@kit.ImageKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { executeCommand, stopCommand, executeCommandSync, CommandSyncResult } from '@tyousan/ffmpeg';
@@ -460,7 +460,7 @@ struct EditorPage {
       return;
     }
 
-    const fileName = `${this.projectId}.zap`;
+    const fileName = `${this.projectId}.zhuziani`;
     const filePath = this.context.filesDir + '/' + fileName;
     const success = await ZapUtils.saveZap(filePath, this.frames, this.fps, this.ratio);
     if (success) {
@@ -799,6 +799,7 @@ struct EditorPage {
     .padding({ left: 16, right: 16 })
     .backgroundColor($r('sys.color.background_primary'))
     .shadow({ radius: 2, color: '#1A000000', offsetY: 1 })
+
   }
 
   build() {

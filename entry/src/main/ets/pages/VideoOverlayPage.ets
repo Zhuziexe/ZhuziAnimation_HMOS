@@ -8,98 +8,14 @@ import { getVideoInfo } from '../common/VideoUtils';
 import { image } from '@kit.ImageKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { ProcessingDialog } from '../components/ProcessingDialog';
+import { RenderRect,PixelPos,FfmpegResult,FfmpegError } from '../common/CommonInterfaces'
+import {DraggableImageOverlay} from '../components/DraggableImageOverlay'
 
-// ---------- 接口定义 ----------
-interface RenderRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface PixelPos {
-  x: number;
-  y: number;
-}
-
-interface FfmpegResult {
-  sessionId?: number;
-}
-
-interface FfmpegError {
-  sessionId?: number;
-  errCode?: number | string;
-  message?: string;
-  stderr?: string;
-}
-
-// ---------- 可拖动图片水印组件 ----------
-@Component
-struct DraggableImageOverlay {
-  @Prop imageUri: string = '';
-  @Prop imageWidth: number = 0;
-  @Prop imageHeight: number = 0;
-  @Prop imageAlpha: number = 1.0;
-  @State x: number = 0;
-  @State y: number = 0;
-  @Prop renderRect: RenderRect = { x: 0, y: 0, width: 0, height: 0 };
-
-  onPositionChange: (x: number, y: number) => void = () => {};
-
-  private startX: number = 0;
-  private startY: number = 0;
-  private offsetX: number = 0;
-  private offsetY: number = 0;
-  private isDragging: boolean = false;
-
-  build() {
-    Image(this.imageUri)
-      .width(this.imageWidth)
-      .height(this.imageHeight)
-      .objectFit(ImageFit.Fill)
-      .opacity(this.imageAlpha)   // 预览时应用透明度
-      .position({ x: this.x, y: this.y })
-      .gesture(
-        PanGesture({ direction: PanDirection.All, distance: 5 })
-          .onActionStart((event: GestureEvent) => {
-            this.isDragging = true;
-            this.startX = event.fingerList[0].localX;
-            this.startY = event.fingerList[0].localY;
-            this.offsetX = this.x;
-            this.offsetY = this.y;
-          })
-          .onActionUpdate((event: GestureEvent) => {
-            if (!this.isDragging) return;
-            let newX = this.offsetX + (event.fingerList[0].localX - this.startX);
-            let newY = this.offsetY + (event.fingerList[0].localY - this.startY);
-
-            const minX = this.renderRect.x;
-            const minY = this.renderRect.y;
-            const maxX = this.renderRect.x + this.renderRect.width - this.imageWidth;
-            const maxY = this.renderRect.y + this.renderRect.height - this.imageHeight;
-            newX = Math.max(minX, Math.min(newX, maxX));
-            newY = Math.max(minY, Math.min(newY, maxY));
-
-            this.x = newX;
-            this.y = newY;
-            this.onPositionChange(newX, newY);
-          })
-          .onActionEnd(() => {
-            this.isDragging = false;
-          })
-      )
-      .hitTestBehavior(HitTestMode.Default)
-      .border({ width: 2, color: '#00BFFF', style: BorderStyle.Solid })
-  }
-}
-
-// ---------- 主页面 ----------
 @Entry
 @Component
 struct VideoOverlayPage {
   private context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
-  // 从路由参数接收视频URI和图片URI（图片已由调用方选择）
   @State videoUri: string = '';
   @State imageUri: string = '';
   @State framePath: string = '';
@@ -107,7 +23,6 @@ struct VideoOverlayPage {
   @State videoWidth: number = 0;
   @State videoHeight: number = 0;
 
-  // 水印图片相关
   @State watermarkImagePath: string = '';
   @State originalImageWidth: number = 0;
   @State originalImageHeight: number = 0;
@@ -132,7 +47,6 @@ struct VideoOverlayPage {
   private isPageAlive: boolean = true;
   private progressDialogController: CustomDialogController | null = null;
 
-  // ---------- 生命周期 ----------
   aboutToAppear() {
     const params = router.getParams() as Record<string, string> | undefined;
     if (params && params['videoUri'] && params['imageUri']) {
@@ -158,10 +72,8 @@ struct VideoOverlayPage {
     try { fileIo.unlinkSync(cacheDir + 'watermarked_video.mp4'); } catch {}
   }
 
-  // ---------- 准备图片和视频 ----------
   private async prepareImageAndVideo() {
     try {
-      // 1. 复制图片到缓存，获取尺寸
       const cacheDir = this.context.cacheDir + '/tools/watermark/';
       try { fileIo.mkdirSync(cacheDir, true); } catch {}
       const destPath = cacheDir + 'watermark_image.png';
@@ -173,7 +85,6 @@ struct VideoOverlayPage {
       this.originalImageWidth = info.size.width;
       this.originalImageHeight = info.size.height;
 
-      // 2. 准备视频预览帧
       await this.prepareFrame();
     } catch (err) {
       console.error('准备图片或视频失败:', (err as BusinessError).message);
@@ -205,7 +116,6 @@ struct VideoOverlayPage {
     }
   }
 
-  // ---------- 准备视频预览帧 ----------
   private async prepareFrame() {
     try {
       this.isLoading = true;
@@ -246,7 +156,6 @@ struct VideoOverlayPage {
     }
   }
 
-  // ---------- 计算渲染矩形 ----------
   private calcRenderRect(containerW: number, containerH: number): RenderRect {
     if (containerW === 0 || containerH === 0 || this.videoWidth === 0 || this.videoHeight === 0) {
       return { x: 0, y: 0, width: 0, height: 0 };
@@ -295,7 +204,6 @@ struct VideoOverlayPage {
     }
   }
 
-  // ---------- 构建 FFmpeg 命令（增加透明度） ----------
   private buildWatermarkCommand(inputPath: string, outputPath: string, watermarkPath: string): string[] {
     const x = this.positionX;
     const y = this.positionY;
@@ -401,7 +309,6 @@ struct VideoOverlayPage {
     }
   }
 
-  // ---------- 保存到相册 ----------
   private async saveToGallery(filePath: string): Promise<void> {
     try {
       const phHelper = photoAccessHelper.getPhotoAccessHelper(this.context);
@@ -435,7 +342,6 @@ struct VideoOverlayPage {
     }
   }
 
-  // ---------- UI 构建 ----------
   @Builder
   buildTopBar() {
     Row() {
@@ -493,7 +399,6 @@ struct VideoOverlayPage {
       .width('100%')
       .padding({ left: 16, right: 16 })
 
-      // 新增不透明度滑块
       Row() {
         Text('不透明度').width(70).fontSize(16).fontColor($r('sys.color.font_primary'))
         Slider({

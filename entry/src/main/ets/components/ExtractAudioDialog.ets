@@ -11,8 +11,6 @@ export struct ExtractAudioDialog {
   videoUri: string = ''; // 由外部传入，不再内部选择
 
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-  @State status: 'processing' | 'saving' | 'done' = 'processing';
-  @State progressText: string = '正在提取音频...';
   private currentSessionId: number = -1;
   private cancelFlag: boolean = false;
   private isPageAlive: boolean = true;
@@ -113,8 +111,6 @@ export struct ExtractAudioDialog {
 
   private async saveAudio(filePath: string) {
     try {
-      this.status = 'saving';
-      this.progressText = '保存音频...';
       const audioSaveOptions = new picker.AudioSaveOptions();
       const timestamp = Date.now();
       audioSaveOptions.newFileNames = [`提取音频_${timestamp}.mp3`];
@@ -150,21 +146,19 @@ export struct ExtractAudioDialog {
 
   build() {
     Column({ space: 16 }) {
-      if (this.status === 'processing') {
         LoadingProgress().width(48).height(48)
-        Text(this.progressText).fontSize(16).fontColor($r('sys.color.font_primary'))
-        Text('提取可能需要一些时间...').fontSize(14).fontColor($r('sys.color.font_secondary'))
-        Button('取消').onClick(() => {
+        Text('提取音频中...').fontSize(16).fontColor($r('sys.color.font_primary'))
+        Button('取消')
+          .width(120)
+          .buttonStyle(ButtonStyleMode.TEXTUAL)
+          .fontColor($r('app.color.brand'))
+          .onClick(() => {
           if (this.currentSessionId > 0) {
             stopCommand({ sessionId: this.currentSessionId });
           }
           this.cancelFlag = true;
           this.controller.close();
         })
-      } else if (this.status === 'saving') {
-        LoadingProgress().width(48).height(48)
-        Text('正在弹出保存窗口...').fontSize(16).fontColor($r('sys.color.font_primary'))
-      }
     }
     .padding(24)
   }

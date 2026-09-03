@@ -24,6 +24,13 @@ struct Index {
 
   @StorageLink('tabindex') tabindex: number = 1;
 
+  formatFileSize(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  }
+
   showRenameDialog(project: ProjectMeta, index: number) {
     if (this.renameDialogController) {
       this.renameDialogController.close();
@@ -58,7 +65,7 @@ struct Index {
       const oldFilePath = project.filePath;
 
       const newId = Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
-      const newFilePath = `${this.context.filesDir}/${newId}.zap`;
+      const newFilePath = `${this.context.filesDir}/${newId}.zhuziani`;
 
       const renameSuccess = await this.renameProjectFile(oldFilePath, newFilePath);
       if (!renameSuccess) {
@@ -106,7 +113,7 @@ struct Index {
   async importZapProject() {
     try {
       const options = new picker.DocumentSelectOptions();
-      options.fileSuffixFilters = ['ZAP文件|.zap'];
+      options.fileSuffixFilters = ['ZHUZIANI文件|.zhuziani'];
       options.isEncryptionSupported = false;
       options.maxSelectNumber = 1;
       const documentPicker = new picker.DocumentViewPicker(this.context);
@@ -122,13 +129,13 @@ struct Index {
 
       const header = this.readZapHeader(buffer);
       if (!header) {
-        promptAction.showToast({ message: '无效的 ZAP 文件' });
+        promptAction.showToast({ message: '无效的 ZHUZIANI 文件' });
         return;
       }
       const frameCount = header.frameCount;
 
       const fileName = decodeURIComponent(sourceUri.split('/').pop() || '');
-      let baseName = fileName.replace(/\.zap$/i, '');
+      let baseName = fileName.replace(/\.zhuziani$/i, '');
       if (!baseName) baseName = '导入项目';
 
       const allProjects = await ProjectManager.getProjects();
@@ -141,7 +148,7 @@ struct Index {
       }
 
       const newId = Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
-      const newFilePath = `${this.context.filesDir}/${newId}.zap`;
+      const newFilePath = `${this.context.filesDir}/${newId}.zhuziani`;
       const destFile = fileIo.openSync(newFilePath,
         fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC
       );
@@ -159,7 +166,7 @@ struct Index {
       await this.loadProjects();
       promptAction.showToast({ message: `导入成功，共 ${frameCount} 帧` });
     } catch (err) {
-      console.error('导入 ZAP 失败:', err);
+      console.error('导入 ZHUZIANI 失败:', err);
       const errorMsg = err instanceof Error ? err.message : String(err);
       promptAction.showToast({ message: `导入失败: ${errorMsg}` });
     }
@@ -175,9 +182,9 @@ struct Index {
       fileIo.closeSync(srcFile);
 
       const options = new picker.DocumentSaveOptions();
-      const fileName = project.name.endsWith('.zap') ? project.name : project.name + '.zap';
+      const fileName = project.name.endsWith('.zhuziani') ? project.name : project.name + '.zhuziani';
       options.newFileNames = [fileName];
-      options.fileSuffixChoices = ['ZAP文件|.zap'];
+      options.fileSuffixChoices = ['ZHUZIANI文件|.zhuziani'];
 
       const documentPicker = new picker.DocumentViewPicker(this.context);
       const uris = await documentPicker.save(options);
@@ -194,7 +201,7 @@ struct Index {
         promptAction.showToast({ message: '取消导出' });
       }
     } catch (err) {
-      console.error('导出ZAP失败:', err);
+      console.error('导出ZHUZIANI失败:', err);
       const errorMsg = err instanceof Error ? err.message : String(err);
       promptAction.showToast({ message: `导出失败: ${errorMsg}` });
     }
@@ -274,16 +281,16 @@ struct Index {
       const filesDir = this.context.filesDir;
       const files = fileIo.listFileSync(filesDir);
       for (const file of files) {
-        if (file.endsWith('.zap')) {
+        if (file.endsWith('.zhuziani')) {
           const fullPath = `${filesDir}/${file}`;
           if (!validPaths.has(fullPath)) {
             fileIo.unlinkSync(fullPath);
-            console.info('删除孤立ZAP文件:', fullPath);
+            console.info('删除孤立ZHUZIANI文件:', fullPath);
           }
         }
       }
     } catch (e) {
-      console.warn('清理孤立ZAP文件失败:', e);
+      console.warn('清理孤立ZHUZIANI文件失败:', e);
     }
   }
 
@@ -363,6 +370,10 @@ struct Index {
                             Text(new Date(project.lastModified).toLocaleString())
                               .fontSize(14)
                               .fontColor($r('sys.color.font_secondary'))
+                            Text('   ')
+                            Text(`大小: ${this.formatFileSize(project.size??0)}`)
+                              .fontSize(14)
+                              .fontColor($r('sys.color.font_secondary'))
                           }
                         }
                         .layoutWeight(1)
@@ -377,7 +388,7 @@ struct Index {
                         .buttonStyle(ButtonStyleMode.TEXTUAL)
                         .backgroundColor(Color.Transparent)
                         .bindMenu([
-                          { value: '导出ZAP文件', action: () => this.exportZapProject(project) },
+                          { value: '导出ZHUZIANI文件', action: () => this.exportZapProject(project) },
                           { value: '重命名', action: () => this.showRenameDialog(project, index) },
                           { value: '删除', action: () => this.deleteProject(project, index) }
                         ])
@@ -435,7 +446,7 @@ struct Index {
               .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
               .margin({ left: 8 })
               .bindMenu([
-                { value: "导入 ZAP 文件", action: () => this.importZapProject() },
+                { value: "导入 ZHUZIANI 文件", action: () => this.importZapProject() },
                 { value: "关于", action: () => showAbout() }
               ])
 
