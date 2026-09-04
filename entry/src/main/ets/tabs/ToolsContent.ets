@@ -8,6 +8,12 @@ import { VideoMuteDialog } from '../components/VideoMuteDialog';
 import { GifSettingsDialog } from '../components/VideoToGifDialog';
 import { SegmentButtonItemTuple, SegmentButton, SegmentButtonOptions } from '@kit.ArkUI';
 
+interface MiniTool {
+  toolIcon: Resource;
+  toolName: string;
+  toolAction: () => void;
+}
+
 @Component
 export struct ToolsContent {
   private settingsDialogController: CustomDialogController | null = null;
@@ -20,12 +26,109 @@ export struct ToolsContent {
       { text: '音视频' },
       { text: '图片' }
     ] as SegmentButtonItemTuple,
-    selectedFontColor:$r('sys.color.font_primary'),
+    selectedFontColor: $r('sys.color.font_primary'),
     backgroundColor: $r('app.color.unselected_tab_button'),
-    selectedBackgroundColor:$r('app.color.selected_tab_button')
+    selectedBackgroundColor: $r('app.color.selected_tab_button')
   });
   @StorageLink('toolIndex') selectedIndexes: number[] = [0];
 
+  private videoTools: MiniTool[] = [
+    {
+      toolIcon: $r('sys.symbol.list_bullet'),
+      toolName: '获取视频属性',
+      toolAction: () => { this.pickVideoForInfo(); }
+    },
+    {
+      toolIcon: $r('sys.symbol.gif_video'),
+      toolName: '视频转GIF',
+      toolAction: () => { this.pickVideoForGif(); }
+    },
+    {
+      toolIcon: $r('sys.symbol.arrow_up_and_rectangle_on_rectangle'),
+      toolName: '视频单帧提取',
+      toolAction: () => { this.pickVideoForPage('pages/FrameCapturePage'); }
+    },
+    {
+      toolIcon: $r('sys.symbol.crop'),
+      toolName: '视频画面裁剪',
+      toolAction: () => { this.pickVideoForPage('pages/VideoCropPage'); }
+    },
+    {
+      toolIcon: $r('sys.symbol.rotate_left'),
+      toolName: '视频旋转',
+      toolAction: () => { this.pickVideoForPage('pages/VideoRotatePage'); }
+    },
+    {
+      toolIcon: $r('sys.symbol.character_square'),
+      toolName: '视频文字水印',
+      toolAction: () => { this.pickVideoForPage('pages/VideoWatermarkPage'); }
+    },
+    {
+      toolIcon: $r('sys.symbol.star_square_on_square'),
+      toolName: '叠加图片到视频',
+      toolAction: () => { this.pickVideoForOverlay(); }
+    },
+    {
+      toolIcon: $r('sys.symbol.make_video'),
+      toolName: '视频区域模糊',
+      toolAction: () => { this.pickVideoForPage('pages/VideoBlurPage'); }
+    },
+    {
+      toolIcon: $r('sys.symbol.video_speed'),
+      toolName: '视频变速',
+      toolAction: () => { this.pickVideoForPage('pages/VideoSpeedPage'); }
+    },
+    {
+      toolIcon: $r('sys.symbol.music_slash_fill'),
+      toolName: '去除视频音频',
+      toolAction: () => { this.pickVideoForMute(); }
+    },
+    {
+      toolIcon: $r('sys.symbol.wave_video'),
+      toolName: '提取视频音频',
+      toolAction: () => { this.pickVideoForExtractAudio(); }
+    }
+  ];
+
+  private imageTools: MiniTool[] = [
+    {
+      toolIcon: $r('sys.symbol.rotate_left'),
+      toolName: '图片旋转',
+      toolAction: () => { this.pickImageForPage('pages/ImageRotatePage'); }
+    },
+    {
+      toolIcon: $r('sys.symbol.character_square'),
+      toolName: '图片文字水印',
+      toolAction: () => { this.pickImageForPage('pages/ImageWatermarkPage'); }
+    },
+    {
+      toolIcon: $r('sys.symbol.star_square_on_square'),
+      toolName: '图片叠加',
+      toolAction: () => { this.pickImageForOverlay(); }
+    },
+    {
+      toolIcon: $r('sys.symbol.square_split_2x1_dash'),
+      toolName: '图片区域模糊',
+      toolAction: () => { this.pickImageForPage('pages/ImageBlurPage'); }
+    },
+    {
+      toolIcon: $r('sys.symbol.celiakeyboard_menu_icon_size'),
+      toolName: '图片缩放',
+      toolAction: () => { this.pickImageForPage('pages/ImageStretchPage'); }
+    },
+    {
+      toolIcon: $r('sys.symbol.camera_filters'),
+      toolName: '迷幻变色',
+      toolAction: () => { this.pickImageForPage('pages/ImageColorPage'); }
+    },
+    {
+      toolIcon: $r('sys.symbol.eyedropper'),
+      toolName: '图片取色器',
+      toolAction: () => { this.pickImageForPage('pages/ImageColorPickerPage'); }
+    }
+  ];
+
+  // ---------- 原有方法全部保留，未改动 ----------
   private async cleanToolsCache(): Promise<void> {
     try {
       const cacheDir = this.context.cacheDir;
@@ -130,10 +233,10 @@ export struct ToolsContent {
   private async pickVideoForPage(pageUrl: string) {
     await this.cleanToolsCache();
     const uri = await this.pickVideo();
-    if(!uri) return;
+    if (!uri) return;
     router.pushUrl({
       url: pageUrl,
-      params:{videoUri:uri}
+      params: { videoUri: uri }
     });
   }
 
@@ -233,6 +336,7 @@ export struct ToolsContent {
     }
   }
 
+  // ---------- UI 构建方法 ----------
   @Builder
   buildTool(toolIcon: Resource, toolName: string, toolAction: () => void) {
     Row() {
@@ -246,13 +350,14 @@ export struct ToolsContent {
         .fontSize(16)
         .fontColor($r('sys.color.font_primary'))
         .textAlign(TextAlign.Start)
-      Blank()
+        .layoutWeight(1)
       SymbolGlyph($r('sys.symbol.chevron_right'))
         .width(32)
         .height(32)
         .fontSize(32)
         .fontColor([$r('sys.color.font_tertiary')])
     }
+    .hoverEffect(HoverEffect.Highlight)
     .width('100%')
     .height(56)
     .borderRadius(16)
@@ -269,97 +374,37 @@ export struct ToolsContent {
     Divider().padding({ left: 8, right: 8 }).strokeWidth(0.8)
   }
 
+  @Builder
+  renderToolList(tools: MiniTool[]) {
+    Column() {
+      ForEach(tools,
+        (item: MiniTool, index: number) => {
+          if (index > 0) {
+            this.buildDivider();
+          }
+          this.buildTool(item.toolIcon, item.toolName, item.toolAction);
+        },
+        (item: MiniTool) => item.toolName
+      )
+    }
+    .backgroundColor($r('app.color.listitem'))
+    .borderRadius(16)
+    .padding(4)
+  }
+
   build() {
     Stack() {
       List({ space: 12 }) {
-        if(this.selectedIndexes[0] == 0) {
+        if (this.selectedIndexes[0] == 0) {
           ListItem() {
-            Column() {
-              this.buildTool($r('sys.symbol.list_bullet'), "获取视频属性", () => {
-                this.pickVideoForInfo();
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.gif_video'), "视频转GIF", () => {
-                this.pickVideoForGif();
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.arrow_up_and_rectangle_on_rectangle'), "视频单帧提取", () => {
-                this.pickVideoForPage('pages/FrameCapturePage');
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.crop'), "视频画面裁剪", () => {
-                this.pickVideoForPage('pages/VideoCropPage');
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.rotate_left'), "视频旋转", () => {
-                this.pickVideoForPage('pages/VideoRotatePage');
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.character_square'), "视频文字水印", () => {
-                this.pickVideoForPage('pages/VideoWatermarkPage');
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.star_square_on_square'), "叠加图片到视频", () => {
-                this.pickVideoForOverlay();
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.make_video'), "视频区域模糊", () => {
-                this.pickVideoForPage('pages/VideoBlurPage');
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.video_speed'), "视频变速", () => {
-                this.pickVideoForPage('pages/VideoSpeedPage');
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.music_slash_fill'), "去除视频音频", () => {
-                this.pickVideoForMute();
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.wave_video'), "提取视频音频", () => {
-                this.pickVideoForExtractAudio();
-              });
-            }
-            .backgroundColor($r('app.color.listitem'))
-            .borderRadius(16)
-            .padding(4)
+            this.renderToolList(this.videoTools)
           }
           .padding({ left: 12, right: 12 })
         }
 
-        if(this.selectedIndexes[0] == 1) {
+        if (this.selectedIndexes[0] == 1) {
           ListItem() {
-            Column() {
-              this.buildTool($r('sys.symbol.rotate_left'), "图片旋转", () => {
-                this.pickImageForPage('pages/ImageRotatePage');
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.character_square'), "图片文字水印", () => {
-                this.pickImageForPage('pages/ImageWatermarkPage');
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.star_square_on_square'), "图片叠加", () => {
-                this.pickImageForOverlay();
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.square_split_2x1_dash'), "图片区域模糊", () => {
-                this.pickImageForPage('pages/ImageBlurPage');
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.celiakeyboard_menu_icon_size'),"图片缩放",()=>{
-                this.pickImageForPage('pages/ImageStretchPage');
-              })
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.camera_filters'),"迷幻变色",()=>{
-                this.pickImageForPage('pages/ImageColorPage');
-              });
-              this.buildDivider();
-              this.buildTool($r('sys.symbol.eyedropper'), "图片取色器", () => {
-                this.pickImageForPage('pages/ImageColorPickerPage');
-              });
-            }
-            .backgroundColor($r('app.color.listitem'))
-            .borderRadius(16)
-            .padding(4)
+            this.renderToolList(this.imageTools)
           }
           .padding({ left: 12, right: 12 })
         }
@@ -369,9 +414,10 @@ export struct ToolsContent {
       .alignListItem(ListItemAlign.Center)
       .contentStartOffset(110)
       .contentEndOffset(80)
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
-      // 标题栏和分段按钮（保持不变）
-      Column({space:4}) {
+      // 标题栏和分段按钮
+      Column({ space: 4 }) {
         Row() {
           Text($r('app.string.tools_page'))
             .fontSize(24)
@@ -379,11 +425,13 @@ export struct ToolsContent {
             .fontColor($r('sys.color.font_primary'))
             .layoutWeight(1)
         }
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
         .height(56)
         SegmentButton({
           options: this.tabOptions,
           selectedIndexes: this.selectedIndexes
         })
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           .width('100%')
           .height(40)
           .padding(2)
@@ -400,7 +448,9 @@ export struct ToolsContent {
           [$r('sys.color.background_secondary'), 1.0]
         ]
       })
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .alignContent(Alignment.TopStart)
     .width('100%')
     .height('100%')

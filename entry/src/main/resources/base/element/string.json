@@ -23,6 +23,10 @@
     {
       "name": "stop_motion_animation",
       "value": "定格动画"
+    },
+    {
+      "name": "prepare_app_terminate_reason",
+      "value": "在窗口关闭时询问用户是否保存项目"
     }
   ]
 }

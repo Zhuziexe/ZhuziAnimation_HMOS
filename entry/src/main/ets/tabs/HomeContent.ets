@@ -43,37 +43,31 @@ export struct HomeContent {
               md:2,
               lg:3
             }
-          }){
-            GridCol({span:1}){
-              this.buildCard(
-                '🎬',
-                '音视频工具',
-                '裁剪、水印、模糊...',
-                () => {
-                  this.toolIndex = [0];
-                  this.goToTools();
-                }
-              )
-            }
-            GridCol({span:1}){
-              this.buildCard(
-                '🖼️',
-                '图片工具',
-                '新功能上线',
-                () => {
-                  this.toolIndex = [1];
-                  this.goToTools();
-                }
-              )
-            }
-            GridCol({span:1}) {
-              this.buildCard(
-                '🎞️',
-                '定格动画',
-                '制作定格动画',
-                () => this.goToProjects()
-              )
-            }
+          }) {
+            this.buildCard(
+              '🎬',
+              '音视频工具',
+              '裁剪、水印、模糊...',
+              () => {
+                this.toolIndex = [0];
+                this.goToTools();
+              }
+            )
+            this.buildCard(
+              '🖼️',
+              '图片工具',
+              '新功能上线',
+              () => {
+                this.toolIndex = [1];
+                this.goToTools();
+              }
+            )
+            this.buildCard(
+              '🎞️',
+              '定格动画',
+              '制作定格动画',
+              () => this.goToProjects()
+            )
           }
         }
         .width('100%')
@@ -86,6 +80,7 @@ export struct HomeContent {
       .align(Alignment.Top)
       .contentStartOffset(56)
       .contentEndOffset(80)
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
       Row() {
         Text($r('app.string.EntryAbility_label'))
@@ -93,6 +88,7 @@ export struct HomeContent {
           .fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
           .layoutWeight(1)
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       }
       .width('100%')
       .height(56)
@@ -107,41 +103,46 @@ export struct HomeContent {
           [$r('sys.color.background_secondary'), 1.0]
         ]
       })
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }
     .alignContent(Alignment.TopStart)
     .width('100%')
     .height('100%')
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   @Builder
   buildCard(emoji: string, title: string, subtitle: string, action: () => void) {
-    Row() {
-      Text(emoji)
-        .fontSize(48)
-        .margin({ right: 20 })
+    GridCol({span:1}) {
+      Row() {
+        Text(emoji)
+          .fontSize(48)
+          .margin({ right: 20 })
 
-      Column() {
-        Text(title)
-          .fontSize(24)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .textAlign(TextAlign.Start)
-          .width('100%')
-        Text(subtitle)
-          .fontSize(16)
-          .fontColor($r('sys.color.font_primary'))
-          .textAlign(TextAlign.Start)
-          .width('100%')
-          .margin({ top: 4 })
+        Column() {
+          Text(title)
+            .fontSize(24)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .textAlign(TextAlign.Start)
+            .width('100%')
+          Text(subtitle)
+            .fontSize(16)
+            .fontColor($r('sys.color.font_primary'))
+            .textAlign(TextAlign.Start)
+            .width('100%')
+            .margin({ top: 4 })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
       }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
+      .width('100%')
+      .height(120)
+      .padding({ left: 24, right: 20 })
+      .backgroundColor($r('app.color.brand_card'))
+      .borderRadius(20)
+      .onClick(action)
+      .hoverEffect(HoverEffect.Highlight)
     }
-    .width('100%')
-    .height(120)
-    .padding({ left: 24, right: 20 })
-    .backgroundColor($r('app.color.brand_card'))
-    .borderRadius(20)
-    .onClick(action)
   }
 }

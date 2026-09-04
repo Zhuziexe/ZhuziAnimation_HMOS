@@ -3,14 +3,17 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import window from '@ohos.window';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { TempFileManager } from '../common/TempFileManager';
+import { deviceInfo } from '@kit.BasicServicesKit';
 
 const DOMAIN = 0x0000;
 const TAG = '[EntryAbility]';
 
 export default class EntryAbility extends UIAbility {
-  onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+  onCreate(_want: Want, _launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(DOMAIN, TAG, '%{public}s', 'Ability onCreate');
     TempFileManager.init(this.context);
+    AppStorage.setOrCreate('shouldSaveAndExit', false);
+    AppStorage.setOrCreate('editorIsDirty', false);
   }
 
   onDestroy(): void {
@@ -38,5 +41,27 @@ export default class EntryAbility extends UIAbility {
 
   onBackground(): void {
     hilog.info(DOMAIN, TAG, '%{public}s', 'Ability onBackground');
+  }
+
+  onPrepareToTerminate(): boolean {
+    hilog.info(DOMAIN, TAG, '%{public}s', 'Ability onPrepareToTerminate');
+
+    if (deviceInfo.deviceType !== '2in1') {
+      console.info('onPrepareToTerminate: deviceType is not 2in1');
+      return false;
+    }
+
+    const isDirty = AppStorage.get<boolean>('editorIsDirty') || false;
+    if (!isDirty) {
+      console.info('onPrepareToTerminate: editorIsDirty is false');
+      return false;
+    }
+
+    if (!AppStorage.get<boolean>('shouldSaveAndExit')) {
+      AppStorage.setOrCreate('shouldSaveAndExit', true);
+      console.info('onPrepareToTerminate: shouldSaveAndExit set to true');
+    }
+
+    return true;
   }
 }

@@ -7,7 +7,7 @@ import { HdsTabsController, HdsTabs, hdsMaterial } from '@kit.UIDesignKit';
 import { ToolsContent } from '../tabs/ToolsContent';
 import { picker } from '@kit.CoreFileKit';
 import { fileIo } from '@kit.CoreFileKit';
-import { promptAction, SymbolGlyphModifier } from '@kit.ArkUI';
+import { LengthMetrics, promptAction, SymbolGlyphModifier, window } from '@kit.ArkUI';
 import { showAbout } from '../common/ShowAbout';
 import { ZapHeader, NewProjectDialog, RenameProjectDialog } from '../components/ProjectListDialogs';
 
@@ -21,6 +21,7 @@ struct Index {
   private renameDialogController: CustomDialogController | null = null;
 
   private tabcont: HdsTabsController = new HdsTabsController();
+  private windowClass?: window.Window;
 
   @StorageLink('tabindex') tabindex: number = 1;
 
@@ -212,9 +213,39 @@ struct Index {
   }
 
   aboutToAppear() {
+    window.getLastWindow(this.context)
+      .then((win) => {
+        this.windowClass = win;
+        const limits: window.WindowLimits = {
+          minWidth: 500,
+          minHeight: 400,
+          maxWidth: 0,
+          maxHeight: 0,
+          pixelUnit: window.PixelUnit.VP
+        };
+        win.setWindowLimits(limits)
+          .then(()=>{
+            console.info('设置窗口大小限制');
+          })
+          .catch(() => {
+            console.error('无法设置大小限制');
+          });
+
+        const rect = win.getWindowProperties().windowRect;
+        AppStorage.setOrCreate('windowWidth', px2vp(rect.width));
+        AppStorage.setOrCreate('windowHeight',px2vp(rect.height));
+
+        win.on('windowSizeChange', (data) => {
+          AppStorage.set('windowWidth', px2vp(data.width));
+          AppStorage.set('windowHeight',px2vp(data.height))
+        });
+      })
+      .catch((err: Error) => {
+        console.error('获取窗口失败:', err);
+      });
+
     ProjectManager.init(this.context);
     ZapUtils.init(this.context);
-    this.loadProjects();
     (async () => {
       await this.cleanOrphanZapFiles();
     })();
@@ -318,6 +349,9 @@ struct Index {
         .tabBar(
           this.buildBottomTabBar($r('sys.symbol.more_fill'),$r('app.string.tools_page'))
         )
+        .width('100%')
+        .height('100%')
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
         TabContent() {
           HomeContent()
@@ -325,6 +359,9 @@ struct Index {
         .tabBar(
           this.buildBottomTabBar($r('sys.symbol.house_fill'),$r('app.string.home_page'))
         )
+        .width('100%')
+        .height('100%')
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
         TabContent() {
           Stack() {
@@ -339,6 +376,7 @@ struct Index {
                     .fontColor($r('sys.color.font_secondary'))
                     .margin({ top: 8 })
                 }
+                .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
                 .width('100%')
                 .layoutWeight(1)
                 .justifyContent(FlexAlign.Center)
@@ -362,15 +400,10 @@ struct Index {
                             .fontColor($r('sys.color.font_primary'))
                             .maxLines(1)
                             .textOverflow({ overflow: TextOverflow.Ellipsis })
-                          Row() {
+                          Flex({direction:FlexDirection.Row,wrap:FlexWrap.Wrap,space:{main:LengthMetrics.vp(6)}}) {
                             Text(`帧数: ${project.frameCount}`)
                               .fontSize(14)
                               .fontColor($r('sys.color.font_secondary'))
-                            Text('  ')
-                            Text(new Date(project.lastModified).toLocaleString())
-                              .fontSize(14)
-                              .fontColor($r('sys.color.font_secondary'))
-                            Text('   ')
                             Text(`大小: ${this.formatFileSize(project.size??0)}`)
                               .fontSize(14)
                               .fontColor($r('sys.color.font_secondary'))
@@ -401,19 +434,22 @@ struct Index {
                       .backgroundColor($r('app.color.listitem'))
                       .borderRadius(8)
                       .onClick(() => this.openProject(project))
+                      .hoverEffect(HoverEffect.Highlight)
                     }
                     .margin({ left: 16, right: 16 })
-                  }, (project: ProjectMeta) => project.id)
+                  }, (project: ProjectMeta) => project.id + project.lastModified)
                 }
                 .layoutWeight(1)
                 .width('100%')
                 .contentEndOffset(80)
                 .contentStartOffset(56)
+                .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
               }
             }
             .width('100%')
             .height('100%')
             .backgroundColor($r('sys.color.background_secondary'))
+            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
             Row() {
               Text($r('app.string.stop_motion_animation'))
@@ -421,6 +457,7 @@ struct Index {
                 .fontWeight(FontWeight.Bold)
                 .fontColor($r('sys.color.font_primary'))
                 .layoutWeight(1)
+                .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
               Button(this.sortBy === 'time' ? '按时间' : '按名称')
                 .fontSize(18)
@@ -432,12 +469,15 @@ struct Index {
                   this.sortBy = this.sortBy === 'time' ? 'name' : 'time';
                   this.projects = ProjectManager.sortProjects(this.projects, this.sortBy);
                 })
+                .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
               Button() {
                 SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
                   .fontSize(24)
                   .fontColor([$r('sys.color.font_primary')])
+                  .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
               }
+              .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
               .width(40)
               .height(40)
               .borderRadius(20)
@@ -455,6 +495,7 @@ struct Index {
                   .fontSize(24)
                   .fontColor([Color.White])
               }
+              .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
               .width(40)
               .height(40)
               .borderRadius(20)
@@ -477,14 +518,22 @@ struct Index {
                 [$r('sys.color.background_secondary'), 1.0]
               ]
             })
+            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           }
+          .alignContent(Alignment.TopStart)
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           .width('100%')
           .height('100%')
         }
         .tabBar(
           this.buildBottomTabBar($r('sys.symbol.template_fill'),$r('app.string.stop_motion_animation'))
         )
+        .width('100%')
+        .height('100%')
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       }
+      .width('100%')
+      .height('100%')
       .barPosition(BarPosition.End)
       .vertical(false)
       .barOverlap(true)
@@ -499,8 +548,11 @@ struct Index {
       .onChange((index: number) => {
         this.tabindex = index;
       })
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }
     .backgroundColor($r('sys.color.background_secondary'))
+    .width('100%')
+    .height('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 }

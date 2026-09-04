@@ -10,11 +10,15 @@ export struct ControlBar {
     Row() {
       Button(){
         SymbolGlyph(this.isPlaying?$r('sys.symbol.pause'):$r('sys.symbol.play_fill'))
+          .width(32)
+          .height(32)
+          .fontSize(32)
       }
-        .width(48)
-        .height(48)
-        .fontSize(20)
-        .onClick(() => this.onPlayToggle())
+      .buttonStyle(ButtonStyleMode.TEXTUAL)
+      .width(48)
+      .height(48)
+      .fontSize(20)
+      .onClick(() => this.onPlayToggle())
 
       Slider({
         value: this.progress,
@@ -22,6 +26,7 @@ export struct ControlBar {
         max: this.max > 0 ? this.max : 1,
         step: 1
       })
+        .selectedColor($r('app.color.brand'))
         .layoutWeight(1)
         .margin({ left: 12, right: 12 })
         .onChange((value: number) => {
@@ -31,7 +36,7 @@ export struct ControlBar {
         })
       Text(`${this.progress+1}/${this.max+1}`)
         .fontSize(14)
-        .fontColor('#666')
+        .fontColor($r('sys.color.font_secondary'))
     }
     .width('100%')
     .height('100%')

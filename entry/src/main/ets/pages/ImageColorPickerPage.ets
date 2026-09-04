@@ -14,19 +14,15 @@ struct ImageColorPickerPage {
   @State pixelMap: image.PixelMap | null = null;
   @State isLoading: boolean = true;
 
-  // 图片显示区域尺寸（用于坐标换算）
   private imageDisplayWidth: number = 0;
   private imageDisplayHeight: number = 0;
-  // 图片实际像素尺寸
   private imagePixelWidth: number = 0;
   private imagePixelHeight: number = 0;
-  // 缓存所有像素数据（RGBA_8888），直接使用 Uint8Array 视图，避免重复创建
   private pixelData: Uint8Array | null = null;
 
   @State currentColor: string = '#000000';
   @State currentRgb: string = 'rgb(0, 0, 0)';
   @State currentHsl: string = 'hsl(0, 0%, 0%)';
-  // 标记是否已经取过颜色（用于底部显示提示或颜色）
   @State hasColor: boolean = false;
 
   @State magnifierX: number = 0;
@@ -290,6 +286,7 @@ struct ImageColorPickerPage {
           Image(this.pixelMap)
             .width('100%')
             .height('100%')
+            .draggable(false)
             .objectFit(ImageFit.Contain)
             .onAreaChange((oldArea: Area, newArea: Area) => {
               this.onImageAreaChange(newArea);
