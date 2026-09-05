@@ -1,14 +1,12 @@
-import router from '@ohos.router';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { promptAction } from '@kit.ArkUI';
-import { executeCommand, stopCommand, executeCommandSync, CommandSyncResult } from '@tyousan/ffmpeg';
+import { executeCommand, stopCommand } from '@tyousan/ffmpeg';
 import { image } from '@kit.ImageKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { ProcessingDialog } from '../components/ProcessingDialog';
 
-// ---------- 接口定义 ----------
 interface FfmpegResult {
   sessionId?: number;
 }
@@ -20,24 +18,26 @@ interface FfmpegError {
   stderr?: string;
 }
 
-@Entry
+@Builder
+export function ImageStretchPageBuilder() {
+  ImageStretchPage();
+}
+
 @Component
-struct ImageStretchPage {
+export struct ImageStretchPage {
+  private pathStack: NavPathStack | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
-  // ---------- 图片数据 ----------
   @State imageUri: string = '';
   @State originalWidth: number = 0;
   @State originalHeight: number = 0;
   @State previewPath: string = '';
   @State isLoading: boolean = true;
 
-  // ---------- 缩放参数 ----------
   @State targetWidth: string = '';
   @State targetHeight: string = '';
-  @State isRatioLocked: boolean = true; // true=等比例, false=自由拉伸
+  @State isRatioLocked: boolean = true;
 
-  // ---------- 状态控制 ----------
   @State isExporting: boolean = false;
   private currentSessionId: number = -1;
   private cancelFlag: boolean = false;
@@ -45,14 +45,6 @@ struct ImageStretchPage {
   private progressDialogController: CustomDialogController | null = null;
 
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
-    if (params && params['imageUri']) {
-      this.imageUri = params['imageUri'];
-      this.prepareImage();
-    } else {
-      promptAction.showToast({ message: '未传入图片' });
-      router.back();
-    }
   }
 
   aboutToDisappear() {
@@ -90,7 +82,7 @@ struct ImageStretchPage {
     } catch (err) {
       console.error('加载图片失败:', (err as BusinessError).message);
       promptAction.showToast({ message: '加载图片失败' });
-      router.back();
+      this.pathStack?.pop();
     }
   }
 
@@ -269,7 +261,7 @@ struct ImageStretchPage {
       fileIo.closeSync(destFile);
       if (this.isPageAlive) {
         promptAction.showToast({ message: '缩放图片已保存到相册' });
-        router.back();
+        this.pathStack?.pop();
       }
     } catch (err) {
       console.error('保存到图库失败:', err);
@@ -294,7 +286,7 @@ struct ImageStretchPage {
         if (this.isExporting) {
           promptAction.showToast({ message: '正在处理，请使用"取消"按钮停止' });
         } else {
-          router.back();
+          this.pathStack?.pop();
         }
       })
       .height(40).width(40).buttonStyle(ButtonStyleMode.TEXTUAL)
@@ -312,14 +304,13 @@ struct ImageStretchPage {
     .shadow({ radius: 2, color: '#1A000000', offsetY: 1 })
   }
 
-  // buildPreview 修改：固定 contain，无叠加层
   @Builder
   buildPreview() {
     Stack() {
       Image(`file://${this.previewPath}`)
         .width('100%')
         .height('100%')
-        .objectFit(ImageFit.Contain) // 始终 contain
+        .objectFit(ImageFit.Contain)
         .backgroundColor(Color.Black)
     }
     .width('100%')
@@ -423,39 +414,54 @@ struct ImageStretchPage {
   }
 
   build() {
-    Column() {
-      this.buildTopBar();
+    NavDestination() {
+      Column() {
+        this.buildTopBar();
 
-      if (this.isLoading) {
-        Column() {
-          LoadingProgress().width(48).height(48)
-          Text('加载图片中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
+        if (this.isLoading) {
+          Column() {
+            LoadingProgress().width(48).height(48)
+            Text('加载图片中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
+          }
+          .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
+        } else {
+          this.buildPreview()
+
+          Column() {
+            this.buildControlPanel()
+
+            Button('缩放并导出')
+              .height(48)
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .backgroundColor($r('app.color.brand'))
+              .fontColor(Color.White)
+              .borderRadius(24)
+              .onClick(() => this.startExport())
+              .enabled(!this.isExporting && parseInt(this.targetWidth) > 0 && parseInt(this.targetHeight) > 0)
+              .width('90%')
+          }
+          .width('100%')
+          .backgroundColor($r('sys.color.background_tertiary'))
         }
-        .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
-      } else {
-        this.buildPreview()
-
-        Column() {
-          this.buildControlPanel()
-
-          Button('缩放并导出')
-            .height(48)
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .backgroundColor($r('app.color.brand'))
-            .fontColor(Color.White)
-            .borderRadius(24)
-            .onClick(() => this.startExport())
-            .enabled(!this.isExporting && parseInt(this.targetWidth) > 0 && parseInt(this.targetHeight) > 0)
-            .width('90%')
-        }
-        .width('100%')
-        .backgroundColor($r('sys.color.background_tertiary'))
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onReady((context:NavDestinationContext)=>{
+      this.pathStack = context.pathStack;
+      const params = context.pathInfo.param as Record<string, string>;
+      if (params.imageUri) {
+        this.imageUri = params.imageUri;
+        this.prepareImage();
+      } else {
+        this.pathStack.pop();
+        return;
+      }
+    })
   }
 }

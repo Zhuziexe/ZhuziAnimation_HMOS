@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
@@ -11,9 +10,14 @@ import { ProcessingDialog } from '../components/ProcessingDialog';
 import { RenderRect,PixelPos,FfmpegResult,FfmpegError } from '../common/CommonInterfaces'
 import { DraggableWatermark } from '../components/DraggableWatermark'
 
-@Entry
+@Builder
+export function VideoWatermarkPageBuilder() {
+  VideoWatermarkPage();
+}
+
 @Component
-struct VideoWatermarkPage {
+export struct VideoWatermarkPage {
+  private pathStack: NavPathStack | null = null;
   private context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
   private colorPickerController: CustomDialogController | null = null;
 
@@ -47,16 +51,8 @@ struct VideoWatermarkPage {
   private isPageAlive: boolean = true;
   private progressDialogController: CustomDialogController | null = null;
 
-  // ---------- 生命周期 ----------
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string> | undefined;
-    if (params && params['videoUri']) {
-      this.videoUri = params['videoUri'];
-      this.prepareFrame();
-    } else {
-      promptAction.showToast({ message: '未传入视频' });
-      router.back();
-    }
+
   }
 
   aboutToDisappear() {
@@ -110,7 +106,7 @@ struct VideoWatermarkPage {
     } catch (err) {
       console.error('准备帧失败:', err);
       promptAction.showToast({ message: '加载视频失败' });
-      router.back();
+      this.pathStack?.pop();
     }
   }
 
@@ -345,7 +341,7 @@ struct VideoWatermarkPage {
       fileIo.closeSync(destFile);
       if (this.isPageAlive) {
         promptAction.showToast({ message: '水印视频已保存到相册' });
-        router.back();
+        this.pathStack?.pop();
       }
     } catch (err) {
       console.error('保存到图库失败:', err);
@@ -371,7 +367,7 @@ struct VideoWatermarkPage {
         if (this.isExporting) {
           promptAction.showToast({ message: '正在处理，请使用"取消"按钮停止' });
         } else {
-          router.back();
+          this.pathStack?.pop();
         }
       })
       .height(40).width(40).buttonStyle(ButtonStyleMode.TEXTUAL)
@@ -507,91 +503,106 @@ struct VideoWatermarkPage {
   }
 
   build() {
-    Column() {
-      this.buildTopBar();
+    NavDestination() {
+      Column() {
+        this.buildTopBar();
 
-      if (this.isLoading) {
-        Column() {
-          LoadingProgress().width(48).height(48)
-          Text('加载视频中...').fontSize(16).fontColor($r('sys.color.font_primary')).margin({ top: 12 })
-        }
-        .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
-      } else {
-        Column({ space: 12 }) {
-          Stack() {
-            Image(`file://${this.framePath}`)
-              .width('100%')
-              .height('100%')
-              .objectFit(ImageFit.Contain)
-              .backgroundColor(Color.Transparent)
-              .onAreaChange((_, newArea) => {
-                const w = Number(newArea.width);
-                const h = Number(newArea.height);
-                if (w > 0 && h > 0) {
-                  this.containerWidth = w;
-                  this.containerHeight = h;
-                  const rect = this.calcRenderRect(w, h);
-                  this.renderRect = rect;
-                  this.updateDisplayFontSize();
-                  if (!this.renderInitialized && rect.width > 0 && rect.height > 0) {
-                    this.positionX = 10;
-                    this.positionY = 10;
-
-                    // 转换为屏幕坐标
-                    const screenPos = this.pixelToScreen(10, 10);
-                    this.displayPosX = screenPos.x;
-                    this.displayPosY = screenPos.y;
-
-                    this.renderInitialized = true;
-                  }
-                }
-              })
-
-            if (this.renderInitialized) {
-              DraggableWatermark({
-                text: this.watermarkText,
-                fontSize: this.displayFontSize,
-                fontColor: this.fontColor,
-                alpha: this.alpha,
-                x: this.displayPosX,
-                y: this.displayPosY,
-                renderRect: this.renderRect,
-                onPositionChange: (x: number, y: number) => {
-                  // 更新显示坐标
-                  this.displayPosX = x;
-                  this.displayPosY = y;
-                  // 转换为视频像素坐标
-                  const pixel = this.screenToPixel(x, y);
-                  this.positionX = pixel.x;
-                  this.positionY = pixel.y;
-                }
-              })
-            }
+        if (this.isLoading) {
+          Column() {
+            LoadingProgress().width(48).height(48)
+            Text('加载视频中...').fontSize(16).fontColor($r('sys.color.font_primary')).margin({ top: 12 })
           }
-          .width('100%')
+          .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
+        } else {
+          Column({ space: 12 }) {
+            Stack() {
+              Image(`file://${this.framePath}`)
+                .width('100%')
+                .height('100%')
+                .objectFit(ImageFit.Contain)
+                .backgroundColor(Color.Transparent)
+                .onAreaChange((_, newArea) => {
+                  const w = Number(newArea.width);
+                  const h = Number(newArea.height);
+                  if (w > 0 && h > 0) {
+                    this.containerWidth = w;
+                    this.containerHeight = h;
+                    const rect = this.calcRenderRect(w, h);
+                    this.renderRect = rect;
+                    this.updateDisplayFontSize();
+                    if (!this.renderInitialized && rect.width > 0 && rect.height > 0) {
+                      this.positionX = 10;
+                      this.positionY = 10;
+
+                      // 转换为屏幕坐标
+                      const screenPos = this.pixelToScreen(10, 10);
+                      this.displayPosX = screenPos.x;
+                      this.displayPosY = screenPos.y;
+
+                      this.renderInitialized = true;
+                    }
+                  }
+                })
+
+              if (this.renderInitialized) {
+                DraggableWatermark({
+                  text: this.watermarkText,
+                  fontSize: this.displayFontSize,
+                  fontColor: this.fontColor,
+                  alpha: this.alpha,
+                  x: this.displayPosX,
+                  y: this.displayPosY,
+                  renderRect: this.renderRect,
+                  onPositionChange: (x: number, y: number) => {
+                    // 更新显示坐标
+                    this.displayPosX = x;
+                    this.displayPosY = y;
+                    // 转换为视频像素坐标
+                    const pixel = this.screenToPixel(x, y);
+                    this.positionX = pixel.x;
+                    this.positionY = pixel.y;
+                  }
+                })
+              }
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .backgroundColor(Color.Transparent)
+            .clip(true)
+
+            this.buildControlPanel()
+
+            Button('添加水印并导出')
+              .width('90%')
+              .height(48)
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .backgroundColor($r('app.color.brand'))
+              .fontColor(Color.White)
+              .borderRadius(24)
+              .onClick(() => this.startExport())
+              .enabled(!this.isExporting && this.watermarkText.trim().length > 0)
+          }
           .layoutWeight(1)
-          .backgroundColor(Color.Transparent)
-          .clip(true)
-
-          this.buildControlPanel()
-
-          Button('添加水印并导出')
-            .width('90%')
-            .height(48)
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .backgroundColor($r('app.color.brand'))
-            .fontColor(Color.White)
-            .borderRadius(24)
-            .onClick(() => this.startExport())
-            .enabled(!this.isExporting && this.watermarkText.trim().length > 0)
         }
-        .layoutWeight(1)
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onReady((context:NavDestinationContext) => {
+      this.pathStack = context.pathStack;
+      const params = context.pathInfo.param as Record<string, string>;
+      if (params.videoUri) {
+        this.videoUri = params.videoUri;
+        this.prepareFrame();
+      } else {
+        this.pathStack.pop();
+        return;
+      }
+    })
   }
 }

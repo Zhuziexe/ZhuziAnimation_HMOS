@@ -1,0 +1,84 @@
+{
+  "routerMap": [
+    {
+      "name": "EditorPage",
+      "pageSourceFile": "src/main/ets/pages/EditorPage.ets",
+      "buildFunction": "EditorPageBuilder"
+    },
+    {
+      "name": "FrameCapturePage",
+      "pageSourceFile": "src/main/ets/pages/FrameCapturePage.ets",
+      "buildFunction": "FrameCapturePageBuilder"
+    },
+    {
+      "name": "VideoInfoPage",
+      "pageSourceFile": "src/main/ets/pages/VideoInfoPage.ets",
+      "buildFunction": "VideoInfoPageBuilder"
+    },
+    {
+      "name": "VideoCropPage",
+      "pageSourceFile": "src/main/ets/pages/VideoCropPage.ets",
+      "buildFunction": "VideoCropPageBuilder"
+    },
+    {
+      "name": "VideoRotatePage",
+      "pageSourceFile": "src/main/ets/pages/VideoRotatePage.ets",
+      "buildFunction": "VideoRotatePageBuilder"
+    },
+    {
+      "name": "VideoOverlayPage",
+      "pageSourceFile": "src/main/ets/pages/VideoOverlayPage.ets",
+      "buildFunction": "VideoOverlayPageBuilder"
+    },
+    {
+      "name": "ImageOverlayPage",
+      "pageSourceFile": "src/main/ets/pages/ImageOverlayPage.ets",
+      "buildFunction": "ImageOverlayPageBuilder"
+    },
+    {
+      "name": "VideoWatermarkPage",
+      "pageSourceFile": "src/main/ets/pages/VideoWatermarkPage.ets",
+      "buildFunction": "VideoWatermarkPageBuilder"
+    },
+    {
+      "name": "VideoBlurPage",
+      "pageSourceFile": "src/main/ets/pages/VideoBlurPage.ets",
+      "buildFunction": "VideoBlurPageBuilder"
+    },
+    {
+      "name": "ImageBlurPage",
+      "pageSourceFile": "src/main/ets/pages/ImageBlurPage.ets",
+      "buildFunction": "ImageBlurPageBuilder"
+    },
+    {
+      "name": "ImageRotatePage",
+      "pageSourceFile": "src/main/ets/pages/ImageRotatePage.ets",
+      "buildFunction": "ImageRotatePageBuilder"
+    },
+    {
+      "name": "ImageWatermarkPage",
+      "pageSourceFile": "src/main/ets/pages/ImageWatermarkPage.ets",
+      "buildFunction": "ImageWatermarkPageBuilder"
+    },
+    {
+      "name": "ImageStretchPage",
+      "pageSourceFile": "src/main/ets/pages/ImageStretchPage.ets",
+      "buildFunction": "ImageStretchPageBuilder"
+    },
+    {
+      "name": "VideoSpeedPage",
+      "pageSourceFile": "src/main/ets/pages/VideoSpeedPage.ets",
+      "buildFunction": "VideoSpeedPageBuilder"
+    },
+    {
+      "name": "ImageColorPage",
+      "pageSourceFile": "src/main/ets/pages/ImageColorPage.ets",
+      "buildFunction": "ImageColorPageBuilder"
+    },
+    {
+      "name": "ImageColorPickerPage",
+      "pageSourceFile": "src/main/ets/pages/ImageColorPickerPage.ets",
+      "buildFunction": "ImageColorPickerPageBuilder"
+    }
+  ]
+}

@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { HomeContent } from '../tabs/HomeContent';
 import { ProjectManager, ProjectMeta } from '../common/ProjectManager';
 import { ZapUtils } from '../common/ZapUtils';
@@ -10,6 +9,7 @@ import { fileIo } from '@kit.CoreFileKit';
 import { LengthMetrics, promptAction, SymbolGlyphModifier, window } from '@kit.ArkUI';
 import { showAbout } from '../common/ShowAbout';
 import { ZapHeader, NewProjectDialog, RenameProjectDialog } from '../components/ProjectListDialogs';
+import { EditorPageParams } from './EditorPage';
 
 @Entry
 @Component
@@ -23,7 +23,17 @@ struct Index {
   private tabcont: HdsTabsController = new HdsTabsController();
   private windowClass?: window.Window;
 
+  pathStack: NavPathStack = new NavPathStack();
+
   @StorageLink('tabindex') tabindex: number = 1;
+  @StorageLink('needRefreshProjects') @Watch('onNeedRefreshProjects') needRefreshProjects: boolean = false;
+
+  onNeedRefreshProjects() {
+    if (this.needRefreshProjects) {
+      this.needRefreshProjects = false;
+      this.loadProjects();
+    }
+  }
 
   formatFileSize(bytes: number): string {
     if (bytes < 1024) return bytes + ' B';
@@ -213,6 +223,8 @@ struct Index {
   }
 
   aboutToAppear() {
+    AppStorage.setOrCreate('pathStack', this.pathStack);
+    AppStorage.setOrCreate('needRefreshProjects',false)
     window.getLastWindow(this.context)
       .then((win) => {
         this.windowClass = win;
@@ -266,9 +278,9 @@ struct Index {
       builder: NewProjectDialog({
         projectNames: this.projects.map(p => p.name),
         onConfirm: (name: string) => {
-          router.pushUrl({
-            url: 'pages/EditorPage',
-            params: { projectName: name }
+          this.pathStack.pushPath({
+            name: 'EditorPage',
+            param: { projectName: name } as EditorPageParams
           });
         }
       })
@@ -277,9 +289,9 @@ struct Index {
   }
 
   openProject(project: ProjectMeta) {
-    router.pushUrl({
-      url: 'pages/EditorPage',
-      params: { projectId: project.id }
+    this.pathStack.pushPath({
+      name: 'EditorPage',
+      param: { projectId: project.id } as EditorPageParams
     });
   }
 
@@ -338,221 +350,228 @@ struct Index {
   }
 
   build() {
-    Column() {
-      HdsTabs({
-        controller: this.tabcont,
-        index: this.tabindex
-      }) {
-        TabContent() {
-          ToolsContent()
-        }
-        .tabBar(
-          this.buildBottomTabBar($r('sys.symbol.more_fill'),$r('app.string.tools_page'))
-        )
-        .width('100%')
-        .height('100%')
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    Navigation(this.pathStack) {
+      Column() {
+        HdsTabs({
+          controller: this.tabcont,
+          index: this.tabindex
+        }) {
+          TabContent() {
+            ToolsContent()
+          }
+          .tabBar(
+            this.buildBottomTabBar($r('sys.symbol.more_fill'), $r('app.string.tools_page'))
+          )
+          .width('100%')
+          .height('100%')
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
-        TabContent() {
-          HomeContent()
-        }
-        .tabBar(
-          this.buildBottomTabBar($r('sys.symbol.house_fill'),$r('app.string.home_page'))
-        )
-        .width('100%')
-        .height('100%')
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+          TabContent() {
+            HomeContent()
+          }
+          .tabBar(
+            this.buildBottomTabBar($r('sys.symbol.house_fill'), $r('app.string.home_page'))
+          )
+          .width('100%')
+          .height('100%')
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
-        TabContent() {
-          Stack() {
-            Column() {
-              if (this.projects.length === 0) {
-                Column() {
-                  Text('还没有项目')
-                    .fontSize(18)
-                    .fontColor($r('sys.color.font_primary'))
-                  Text('点击右上角 + 创建新项目')
-                    .fontSize(14)
-                    .fontColor($r('sys.color.font_secondary'))
-                    .margin({ top: 8 })
-                }
-                .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-                .width('100%')
-                .layoutWeight(1)
-                .justifyContent(FlexAlign.Center)
-                .padding({ top: 56, bottom: 80 })
-              }
-              else {
-                List({ space: 4 }) {
-                  ForEach(this.projects, (project: ProjectMeta, index: number) => {
-                    ListItem() {
-                      Row() {
-                        SymbolGlyph($r('sys.symbol.template'))
-                          .fontSize(32)
+          TabContent() {
+            Stack() {
+              Column() {
+                if (this.projects.length === 0) {
+                  Column() {
+                    Text('还没有项目')
+                      .fontSize(18)
+                      .fontColor($r('sys.color.font_primary'))
+                    Text('点击右上角 + 创建新项目')
+                      .fontSize(14)
+                      .fontColor($r('sys.color.font_secondary'))
+                      .margin({ top: 8 })
+                  }
+                  .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+                  .width('100%')
+                  .layoutWeight(1)
+                  .justifyContent(FlexAlign.Center)
+                  .padding({ top: 56, bottom: 80 })
+                } else {
+                  List({ space: 4 }) {
+                    ForEach(this.projects, (project: ProjectMeta, index: number) => {
+                      ListItem() {
+                        Row() {
+                          SymbolGlyph($r('sys.symbol.template'))
+                            .fontSize(32)
+                            .width(40)
+                            .height(40)
+                            .fontColor([$r('sys.color.font_primary')])
+
+                          Column() {
+                            Text(project.name)
+                              .fontSize(18)
+                              .fontWeight(FontWeight.Medium)
+                              .fontColor($r('sys.color.font_primary'))
+                              .maxLines(1)
+                              .textOverflow({ overflow: TextOverflow.Ellipsis })
+                            Flex({
+                              direction: FlexDirection.Row,
+                              wrap: FlexWrap.Wrap,
+                              space: { main: LengthMetrics.vp(6) }
+                            }) {
+                              Text(`帧数: ${project.frameCount}`)
+                                .fontSize(14)
+                                .fontColor($r('sys.color.font_secondary'))
+                              Text(`大小: ${this.formatFileSize(project.size ?? 0)}`)
+                                .fontSize(14)
+                                .fontColor($r('sys.color.font_secondary'))
+                            }
+                          }
+                          .layoutWeight(1)
+                          .alignItems(HorizontalAlign.Start)
+                          .padding({ left: 12 })
+
+                          Button() {
+                            SymbolGlyph($r('sys.symbol.dot_grid_1x2'))
+                              .fontSize(28)
+                              .fontColor([$r('sys.color.font_primary')])
+                          }
+                          .buttonStyle(ButtonStyleMode.TEXTUAL)
+                          .backgroundColor(Color.Transparent)
+                          .bindMenu([
+                            { value: '导出ZHUZIANI文件', action: () => this.exportZapProject(project) },
+                            { value: '重命名', action: () => this.showRenameDialog(project, index) },
+                            { value: '删除', action: () => this.deleteProject(project, index) }
+                          ])
                           .width(40)
                           .height(40)
-                          .fontColor([$r('sys.color.font_primary')])
-
-                        Column() {
-                          Text(project.name)
-                            .fontSize(18)
-                            .fontWeight(FontWeight.Medium)
-                            .fontColor($r('sys.color.font_primary'))
-                            .maxLines(1)
-                            .textOverflow({ overflow: TextOverflow.Ellipsis })
-                          Flex({direction:FlexDirection.Row,wrap:FlexWrap.Wrap,space:{main:LengthMetrics.vp(6)}}) {
-                            Text(`帧数: ${project.frameCount}`)
-                              .fontSize(14)
-                              .fontColor($r('sys.color.font_secondary'))
-                            Text(`大小: ${this.formatFileSize(project.size??0)}`)
-                              .fontSize(14)
-                              .fontColor($r('sys.color.font_secondary'))
-                          }
                         }
-                        .layoutWeight(1)
-                        .alignItems(HorizontalAlign.Start)
-                        .padding({ left: 12 })
-
-                        Button() {
-                          SymbolGlyph($r('sys.symbol.dot_grid_1x2'))
-                            .fontSize(28)
-                            .fontColor([$r('sys.color.font_primary')])
-                        }
-                        .buttonStyle(ButtonStyleMode.TEXTUAL)
-                        .backgroundColor(Color.Transparent)
-                        .bindMenu([
-                          { value: '导出ZHUZIANI文件', action: () => this.exportZapProject(project) },
-                          { value: '重命名', action: () => this.showRenameDialog(project, index) },
-                          { value: '删除', action: () => this.deleteProject(project, index) }
-                        ])
-                        .width(40)
-                        .height(40)
+                        .width('100%')
+                        .height(72)
+                        .padding({ left: 16, right: 8 })
+                        .backgroundColor($r('app.color.listitem'))
+                        .borderRadius(8)
+                        .onClick(() => this.openProject(project))
+                        .hoverEffect(HoverEffect.Highlight)
                       }
-                      .width('100%')
-                      .height(72)
-                      .padding({ left: 16, right: 8 })
-                      .backgroundColor($r('app.color.listitem'))
-                      .borderRadius(8)
-                      .onClick(() => this.openProject(project))
-                      .hoverEffect(HoverEffect.Highlight)
-                    }
-                    .margin({ left: 16, right: 16 })
-                  }, (project: ProjectMeta) => project.id + project.lastModified)
+                      .margin({ left: 16, right: 16 })
+                    }, (project: ProjectMeta) => project.id + project.lastModified)
+                  }
+                  .layoutWeight(1)
+                  .width('100%')
+                  .contentEndOffset(80)
+                  .contentStartOffset(56)
+                  .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
                 }
-                .layoutWeight(1)
-                .width('100%')
-                .contentEndOffset(80)
-                .contentStartOffset(56)
-                .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
               }
-            }
-            .width('100%')
-            .height('100%')
-            .backgroundColor($r('sys.color.background_secondary'))
-            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+              .width('100%')
+              .height('100%')
+              .backgroundColor($r('sys.color.background_secondary'))
+              .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
-            Row() {
-              Text($r('app.string.stop_motion_animation'))
-                .fontSize(24)
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('sys.color.font_primary'))
-                .layoutWeight(1)
+              Row() {
+                Text($r('app.string.stop_motion_animation'))
+                  .fontSize(24)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('sys.color.font_primary'))
+                  .layoutWeight(1)
+                  .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+
+                Button(this.sortBy === 'time' ? '按时间' : '按名称')
+                  .fontSize(18)
+                  .backgroundColor($r('app.color.icon_button'))
+                  .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
+                  .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
+                  .fontColor($r('sys.color.font_primary'))
+                  .onClick(() => {
+                    this.sortBy = this.sortBy === 'time' ? 'name' : 'time';
+                    this.projects = ProjectManager.sortProjects(this.projects, this.sortBy);
+                  })
+                  .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+
+                Button() {
+                  SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
+                    .fontSize(24)
+                    .fontColor([$r('sys.color.font_primary')])
+                    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+                }
                 .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-
-              Button(this.sortBy === 'time' ? '按时间' : '按名称')
-                .fontSize(18)
+                .width(40)
+                .height(40)
+                .borderRadius(20)
                 .backgroundColor($r('app.color.icon_button'))
                 .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
                 .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
-                .fontColor($r('sys.color.font_primary'))
-                .onClick(() => {
-                  this.sortBy = this.sortBy === 'time' ? 'name' : 'time';
-                  this.projects = ProjectManager.sortProjects(this.projects, this.sortBy);
-                })
+                .margin({ left: 8 })
+                .bindMenu([
+                  { value: "导入 ZHUZIANI 文件", action: () => this.importZapProject() },
+                  { value: "关于", action: () => showAbout() }
+                ])
+
+                Button() {
+                  SymbolGlyph($r('sys.symbol.plus'))
+                    .fontSize(24)
+                    .fontColor([Color.White])
+                }
                 .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-
-              Button() {
-                SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
-                  .fontSize(24)
-                  .fontColor([$r('sys.color.font_primary')])
-                  .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+                .width(40)
+                .height(40)
+                .borderRadius(20)
+                .backgroundColor($r('app.color.brand'))
+                .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
+                .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
+                .margin({ left: 8 })
+                .onClick(() => this.createProject())
               }
+              .width('100%')
+              .height(56)
+              .padding({ left: 16, right: 16 })
+              .position({ x: 0, y: 0 })
+              .zIndex(1)
+              .backgroundColor('#00000000')
+              .linearGradient({
+                angle: 0,
+                colors: [
+                  [$r('app.color.titlebar_gradient_end'), 0.0],
+                  [$r('sys.color.background_secondary'), 1.0]
+                ]
+              })
               .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-              .width(40)
-              .height(40)
-              .borderRadius(20)
-              .backgroundColor($r('app.color.icon_button'))
-              .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
-              .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
-              .margin({ left: 8 })
-              .bindMenu([
-                { value: "导入 ZHUZIANI 文件", action: () => this.importZapProject() },
-                { value: "关于", action: () => showAbout() }
-              ])
-
-              Button() {
-                SymbolGlyph($r('sys.symbol.plus'))
-                  .fontSize(24)
-                  .fontColor([Color.White])
-              }
-              .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-              .width(40)
-              .height(40)
-              .borderRadius(20)
-              .backgroundColor($r('app.color.brand'))
-              .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
-              .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
-              .margin({ left: 8 })
-              .onClick(() => this.createProject())
             }
-            .width('100%')
-            .height(56)
-            .padding({ left: 16, right: 16 })
-            .position({ x: 0, y: 0 })
-            .zIndex(1)
-            .backgroundColor('#00000000')
-            .linearGradient({
-              angle: 0,
-              colors: [
-                [$r('app.color.titlebar_gradient_end'), 0.0],
-                [$r('sys.color.background_secondary'), 1.0]
-              ]
-            })
+            .alignContent(Alignment.TopStart)
             .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+            .width('100%')
+            .height('100%')
           }
-          .alignContent(Alignment.TopStart)
-          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+          .tabBar(
+            this.buildBottomTabBar($r('sys.symbol.template_fill'), $r('app.string.stop_motion_animation'))
+          )
           .width('100%')
           .height('100%')
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
         }
-        .tabBar(
-          this.buildBottomTabBar($r('sys.symbol.template_fill'),$r('app.string.stop_motion_animation'))
-        )
         .width('100%')
         .height('100%')
+        .barPosition(BarPosition.End)
+        .vertical(false)
+        .barOverlap(true)
+        .barFloatingStyle({
+          systemMaterialEffect: {
+            materialType: hdsMaterial.MaterialType.ADAPTIVE,
+            materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+          }
+        })
+        .animationDuration(0)
+        .scrollable(false)
+        .onChange((index: number) => {
+          this.tabindex = index;
+        })
         .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       }
+      .backgroundColor($r('sys.color.background_secondary'))
       .width('100%')
       .height('100%')
-      .barPosition(BarPosition.End)
-      .vertical(false)
-      .barOverlap(true)
-      .barFloatingStyle({
-        systemMaterialEffect: {
-          materialType: hdsMaterial.MaterialType.ADAPTIVE,
-          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-        }
-      })
-      .animationDuration(0)
-      .scrollable(false)
-      .onChange((index: number) => {
-        this.tabindex = index;
-      })
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }
-    .backgroundColor($r('sys.color.background_secondary'))
-    .width('100%')
-    .height('100%')
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .mode(NavigationMode.Stack)
+    .hideTitleBar(true)
   }
 }

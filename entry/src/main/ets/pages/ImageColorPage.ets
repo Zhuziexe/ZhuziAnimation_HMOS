@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
@@ -8,9 +7,14 @@ import { effectKit } from '@kit.ArkGraphics2D';
 import { ProcessingDialog } from '../components/ProcessingDialog';
 import { createHueRotationMatrix } from '../common/ImageFilterUtils';
 
-@Entry
+@Builder
+export function ImageColorPageBuilder() {
+  ImageColorPage();
+}
+
 @Component
-struct ImageColorPage {
+export struct ImageColorPage {
+  private pathStack: NavPathStack | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
   @State imageUri: string = '';
   @State originalPixelMap: image.PixelMap | null = null;
@@ -23,14 +27,6 @@ struct ImageColorPage {
   private isPageAlive: boolean = true;
 
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
-    if (params && params['imageUri']) {
-      this.imageUri = params['imageUri'];
-      this.loadImage();
-    } else {
-      promptAction.showToast({ message: '未传入图片' });
-      router.back();
-    }
   }
 
   aboutToDisappear() {
@@ -62,11 +58,10 @@ struct ImageColorPage {
     } catch (err) {
       console.error('加载图片失败:', err);
       promptAction.showToast({ message: '加载图片失败' });
-      router.back();
+      this.pathStack?.pop();
     }
   }
 
-  // 关键修复：使用文件描述符创建 ImageSource
   private async getPixelMapFromUri(uri: string): Promise<image.PixelMap | null> {
     let file: fileIo.File | null = null;
     try {
@@ -198,7 +193,7 @@ struct ImageColorPage {
       fileIo.closeSync(destFile);
       if (this.isPageAlive) {
         promptAction.showToast({ message: '图片已保存到相册' });
-        router.back();
+        this.pathStack?.pop();
       }
     } catch (err) {
       console.error('保存到图库失败:', err);
@@ -230,7 +225,7 @@ struct ImageColorPage {
         if (this.isProcessing) {
           promptAction.showToast({ message: '正在处理，请稍候' });
         } else {
-          router.back();
+          this.pathStack?.pop();
         }
       })
       .height(40).width(40).buttonStyle(ButtonStyleMode.TEXTUAL)
@@ -311,28 +306,43 @@ struct ImageColorPage {
   }
 
   build() {
-    Column() {
-      this.buildTopBar();
-      this.buildPreview();
+    NavDestination() {
       Column() {
-        this.buildSlider();
-        Button('导出并保存')
-          .height(48)
-          .fontSize(18)
-          .fontWeight(FontWeight.Medium)
-          .backgroundColor($r('app.color.brand'))
-          .fontColor(Color.White)
-          .borderRadius(24)
-          .onClick(() => this.startExport())
-          .enabled(!this.isProcessing && !this.isLoading)
-          .width('90%')
+        this.buildTopBar();
+        this.buildPreview();
+        Column() {
+          this.buildSlider();
+          Button('导出并保存')
+            .height(48)
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .backgroundColor($r('app.color.brand'))
+            .fontColor(Color.White)
+            .borderRadius(24)
+            .onClick(() => this.startExport())
+            .enabled(!this.isProcessing && !this.isLoading)
+            .width('90%')
+        }
+        .width('100%')
+        .backgroundColor($r('sys.color.background_tertiary'))
       }
       .width('100%')
+      .height('100%')
       .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onReady((context:NavDestinationContext)=>{
+      this.pathStack = context.pathStack;
+      const params = context.pathInfo.param as Record<string, string>;
+      if (params.imageUri) {
+        this.imageUri = params.imageUri;
+        this.loadImage();
+      } else {
+        this.pathStack.pop();
+        return;
+      }
+    })
   }
 }

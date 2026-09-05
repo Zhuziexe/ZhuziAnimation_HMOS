@@ -1,21 +1,5 @@
 {
   "src": [
-    "pages/Index",
-    "pages/EditorPage",
-    "pages/VideoInfoPage",
-    "pages/FrameCapturePage",
-    "pages/VideoCropPage",
-    "pages/VideoRotatePage",
-    "pages/VideoWatermarkPage",
-    "pages/VideoOverlayPage",
-    "pages/VideoBlurPage",
-    "pages/ImageBlurPage",
-    "pages/ImageOverlayPage",
-    "pages/ImageRotatePage",
-    "pages/ImageWatermarkPage",
-    "pages/ImageStretchPage",
-    "pages/VideoSpeedPage",
-    "pages/ImageColorPage",
-    "pages/ImageColorPickerPage"
+    "pages/Index"
   ]
 }

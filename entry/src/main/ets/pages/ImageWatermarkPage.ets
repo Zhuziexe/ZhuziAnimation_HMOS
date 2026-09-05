@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
@@ -12,9 +11,14 @@ import { ProcessingDialog } from '../components/ProcessingDialog';
 import { DraggableWatermark } from '../components/DraggableWatermark'
 import { FfmpegError, FfmpegResult, PixelPos, RenderRect } from '../common/CommonInterfaces';
 
-@Entry
+@Builder
+export function ImageWatermarkPageBuilder() {
+  ImageWatermarkPage();
+}
+
 @Component
-struct ImageWatermarkPage {
+export struct ImageWatermarkPage {
+  private pathStack: NavPathStack | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
   private colorPickerController: CustomDialogController | null = null;
 
@@ -45,14 +49,6 @@ struct ImageWatermarkPage {
   private progressDialogController: CustomDialogController | null = null;
 
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
-    if (params && params['imageUri']) {
-      this.imageUri = params['imageUri'];
-      this.prepareImage();
-    } else {
-      promptAction.showToast({ message: '未传入图片' });
-      router.back();
-    }
   }
 
   aboutToDisappear() {
@@ -88,7 +84,7 @@ struct ImageWatermarkPage {
     } catch (err) {
       console.error('加载图片失败:', (err as BusinessError).message);
       promptAction.showToast({ message: '加载图片失败' });
-      router.back();
+      this.pathStack?.pop();
     }
   }
 
@@ -305,7 +301,7 @@ struct ImageWatermarkPage {
       fileIo.closeSync(destFile);
       if (this.isPageAlive) {
         promptAction.showToast({ message: '水印图片已保存到相册' });
-        router.back();
+        this.pathStack?.pop();
       }
     } catch (err) {
       console.error('保存到图库失败:', err);
@@ -329,7 +325,7 @@ struct ImageWatermarkPage {
         if (this.isExporting) {
           promptAction.showToast({ message: '正在处理，请使用"取消"按钮停止' });
         } else {
-          router.back();
+          this.pathStack?.pop();
         }
       })
       .height(40).width(40).buttonStyle(ButtonStyleMode.TEXTUAL)
@@ -423,72 +419,93 @@ struct ImageWatermarkPage {
   }
 
   build() {
-    Column() {
-      this.buildTopBar();
+    NavDestination() {
+      Column() {
+        this.buildTopBar();
 
-      if (this.isLoading) {
-        Column() {
-          LoadingProgress().width(48).height(48)
-          Text('加载图片中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
-        }
-        .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
-      } else {
-        Column({ space: 12 }) {
-          Stack() {
-            Image(`file://${this.previewPath}`)
-              .width('100%').height('100%')
-              .objectFit(ImageFit.Contain)
-              .backgroundColor(Color.Transparent)
-              .onAreaChange((_, newArea) => {
-                const w = Number(newArea.width);
-                const h = Number(newArea.height);
-                if (w > 0 && h > 0) {
-                  const rect = this.calcRenderRect(w, h);
-                  this.renderRect = rect;
-                  this.updateDisplayFontSize();
-                  if (!this.renderInitialized) {
-                    const screenPos = this.pixelToScreen(this.positionX, this.positionY);
-                    this.displayPosX = screenPos.x;
-                    this.displayPosY = screenPos.y;
-                    this.renderInitialized = true;
-                  }
-                }
-              })
-
-            if (this.renderInitialized && this.watermarkText.trim()) {
-              DraggableWatermark({
-                text: this.watermarkText,
-                fontSize: this.displayFontSize,
-                fontColor: this.fontColor,
-                alpha: this.alpha,
-                x: this.displayPosX,
-                y: this.displayPosY,
-                renderRect: this.renderRect,
-                onPositionChange: (x: number, y: number) => {
-                  this.displayPosX = x;
-                  this.displayPosY = y;
-                  const pixel = this.screenToPixel(x, y);
-                  this.positionX = pixel.x;
-                  this.positionY = pixel.y;
-                }
-              })
-            }
+        if (this.isLoading) {
+          Column() {
+            LoadingProgress().width(48).height(48)
+            Text('加载图片中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
           }
-          .width('100%').layoutWeight(1).clip(true)
+          .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
+        } else {
+          Column({ space: 12 }) {
+            Stack() {
+              Image(`file://${this.previewPath}`)
+                .width('100%')
+                .height('100%')
+                .objectFit(ImageFit.Contain)
+                .backgroundColor(Color.Transparent)
+                .onAreaChange((_, newArea) => {
+                  const w = Number(newArea.width);
+                  const h = Number(newArea.height);
+                  if (w > 0 && h > 0) {
+                    const rect = this.calcRenderRect(w, h);
+                    this.renderRect = rect;
+                    this.updateDisplayFontSize();
+                    if (!this.renderInitialized) {
+                      const screenPos = this.pixelToScreen(this.positionX, this.positionY);
+                      this.displayPosX = screenPos.x;
+                      this.displayPosY = screenPos.y;
+                      this.renderInitialized = true;
+                    }
+                  }
+                })
 
-          this.buildControlPanel()
+              if (this.renderInitialized && this.watermarkText.trim()) {
+                DraggableWatermark({
+                  text: this.watermarkText,
+                  fontSize: this.displayFontSize,
+                  fontColor: this.fontColor,
+                  alpha: this.alpha,
+                  x: this.displayPosX,
+                  y: this.displayPosY,
+                  renderRect: this.renderRect,
+                  onPositionChange: (x: number, y: number) => {
+                    this.displayPosX = x;
+                    this.displayPosY = y;
+                    const pixel = this.screenToPixel(x, y);
+                    this.positionX = pixel.x;
+                    this.positionY = pixel.y;
+                  }
+                })
+              }
+            }
+            .width('100%').layoutWeight(1).clip(true)
 
-          Button('添加水印并导出')
-            .width('90%').height(48).fontSize(18).fontWeight(FontWeight.Medium)
-            .backgroundColor($r('app.color.brand')).fontColor(Color.White).borderRadius(24)
-            .onClick(() => this.startExport())
-            .enabled(!this.isExporting && this.watermarkText.trim().length > 0)
+            this.buildControlPanel()
+
+            Button('添加水印并导出')
+              .width('90%')
+              .height(48)
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .backgroundColor($r('app.color.brand'))
+              .fontColor(Color.White)
+              .borderRadius(24)
+              .onClick(() => this.startExport())
+              .enabled(!this.isExporting && this.watermarkText.trim().length > 0)
+          }
+          .layoutWeight(1)
         }
-        .layoutWeight(1)
       }
+      .width('100%').height('100%')
+      .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%').height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onReady((context:NavDestinationContext)=>{
+      this.pathStack = context.pathStack;
+      const params = context.pathInfo.param as Record<string, string>;
+      if (params.imageUri) {
+        this.imageUri = params.imageUri;
+        this.prepareImage();
+      } else {
+        this.pathStack.pop();
+        return;
+      }
+    })
   }
 }

@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
@@ -10,6 +9,11 @@ import { ProcessingDialog } from '../components/ProcessingDialog';
 import { FfmpegError, FfmpegResult } from '../common/CommonInterfaces';
 import { BlurOverlay } from '../components/BlurOverlay'
 import { RenderRect } from '../common/CommonInterfaces'
+
+@Builder
+export function ImageBlurPageBuilder() {
+  ImageBlurPage();
+}
 
 @CustomDialog
 struct BlurResultDialog {
@@ -50,9 +54,9 @@ struct BlurResultDialog {
   }
 }
 
-@Entry
 @Component
-struct ImageBlurPage {
+export struct ImageBlurPage {
+  private pathStack: NavPathStack | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
   private isPageAlive: boolean = true;
 
@@ -88,14 +92,7 @@ struct ImageBlurPage {
   private cacheDir: string = '';
 
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
-    if (params && params['imageUri']) {
-      this.imageUri = params['imageUri'];
-      this.prepareImage();
-    } else {
-      promptAction.showToast({ message: '未传入图片' });
-      router.back();
-    }
+
   }
 
   aboutToDisappear() {
@@ -131,7 +128,7 @@ struct ImageBlurPage {
     } catch (err) {
       console.error('准备图片失败:', err);
       promptAction.showToast({ message: '加载图片失败' });
-      router.back();
+      this.pathStack?.pop();
     }
   }
 
@@ -297,14 +294,12 @@ struct ImageBlurPage {
     }
   }
 
-  // ---------- 取消任务 ----------
   private cancelBlur():void {
     if (this.currentSessionId > 0) {
       stopCommand({ sessionId: this.currentSessionId });
     }
   }
 
-  // ---------- 弹窗管理 ----------
   private showLoadingDialog() {
     if (this.loadingDialogController) {
       this.loadingDialogController.close();
@@ -380,7 +375,7 @@ struct ImageBlurPage {
       fileIo.closeSync(destFile);
       promptAction.showToast({ message: '模糊图片已保存到相册' });
       // 保存成功后返回上一页（可选）
-      // router.back();
+      // this.pathStack?.pop();
     } catch (err) {
       console.error('保存到图库失败:', err);
       const errorMsg = (err as BusinessError).message || '未知错误';
@@ -403,7 +398,7 @@ struct ImageBlurPage {
         if (this.isProcessing) {
           promptAction.showToast({ message: '正在处理，请使用"取消"按钮停止' });
         } else {
-          router.back();
+          this.pathStack?.pop();
         }
       })
       .height(40).width(40).buttonStyle(ButtonStyleMode.TEXTUAL)
@@ -421,123 +416,139 @@ struct ImageBlurPage {
     .shadow({ radius: 2, color: '#1A000000', offsetY: 1 })
   }
 
-  // ---------- 主界面 ----------
   build() {
-    Column() {
-      this.buildTopBar();
-      if (this.isLoading) {
-        Column() {
-          LoadingProgress().width(48).height(48)
-          Text('加载图片中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
-        }
-        .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
-      } else {
-        Column({ space: 12 }) {
-          Stack() {
-            // 始终显示原始图片
-            Image(`file://${this.originalImagePath}`)
-              .width('100%')
-              .height('100%')
-              .objectFit(ImageFit.Contain)
-              .onAreaChange((_, newArea) => {
-                const w = Number(newArea.width);
-                const h = Number(newArea.height);
-                if (w > 0 && h > 0) {
-                  this.displayWidth = w;
-                  this.displayHeight = h;
-                  this.updateRenderRect(w, h);
-                  if (!this.cropInitialized && this.renderW > 0 && this.renderH > 0) {
-                    const margin = 20;
-                    const rect: RenderRect = {
-                      x: this.renderX + margin,
-                      y: this.renderY + margin,
-                      width: this.renderW - margin * 2,
-                      height: this.renderH - margin * 2
-                    };
-                    if (rect.width > 0 && rect.height > 0) {
-                      this.crop = rect;
-                      this.cropInitialized = true;
-                      this.updatePixelInfo(rect);
+    NavDestination() {
+
+      Column() {
+        this.buildTopBar();
+        if (this.isLoading) {
+          Column() {
+            LoadingProgress().width(48).height(48)
+            Text('加载图片中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
+          }
+          .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
+        } else {
+          Column({ space: 12 }) {
+            Stack() {
+              // 始终显示原始图片
+              Image(`file://${this.originalImagePath}`)
+                .width('100%')
+                .height('100%')
+                .objectFit(ImageFit.Contain)
+                .onAreaChange((_, newArea) => {
+                  const w = Number(newArea.width);
+                  const h = Number(newArea.height);
+                  if (w > 0 && h > 0) {
+                    this.displayWidth = w;
+                    this.displayHeight = h;
+                    this.updateRenderRect(w, h);
+                    if (!this.cropInitialized && this.renderW > 0 && this.renderH > 0) {
+                      const margin = 20;
+                      const rect: RenderRect = {
+                        x: this.renderX + margin,
+                        y: this.renderY + margin,
+                        width: this.renderW - margin * 2,
+                        height: this.renderH - margin * 2
+                      };
+                      if (rect.width > 0 && rect.height > 0) {
+                        this.crop = rect;
+                        this.cropInitialized = true;
+                        this.updatePixelInfo(rect);
+                      }
                     }
                   }
+                })
+
+              BlurOverlay({
+                cropRect: this.crop,
+                imageWidth: this.displayWidth,
+                imageHeight: this.displayHeight,
+                renderX: this.renderX,
+                renderY: this.renderY,
+                renderWidth: this.renderW,
+                renderHeight: this.renderH,
+                onCropChange: (newCrop: RenderRect) => {
+                  this.onCropChange(newCrop);
                 }
               })
+                .width('100%')
+                .height('100%')
+                .position({ x: 0, y: 0 })
+            }
+            .width('100%')
+            .layoutWeight(1)
 
-            BlurOverlay({
-              cropRect: this.crop,
-              imageWidth: this.displayWidth,
-              imageHeight: this.displayHeight,
-              renderX: this.renderX,
-              renderY: this.renderY,
-              renderWidth: this.renderW,
-              renderHeight: this.renderH,
-              onCropChange: (newCrop: RenderRect) => { this.onCropChange(newCrop); }
-            })
-              .width('100%')
-              .height('100%')
-              .position({ x: 0, y: 0 })
+            Row() {
+              Text('模糊方式').width(70).fontSize(16).fontColor($r('sys.color.font_primary'))
+              Select(this.blurModeOptions)
+                .value(this.blurModeOptions[this.blurMode].value)
+                .selected(this.blurMode)
+                .onSelect((index: number) => {
+                  this.blurMode = index;
+                })
+                .layoutWeight(1)
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16 })
+
+            Row() {
+              Text('模糊程度').width(70).fontSize(16).fontColor($r('sys.color.font_primary'))
+              Slider({
+                min: 1,
+                max: 40,
+                step: 1,
+                value: this.blurStrength
+              })
+                .onChange((value: number, mode: SliderChangeMode) => {
+                  this.blurStrength = value;
+                })
+                .layoutWeight(1)
+                .selectedColor($r('app.color.brand'))
+              Text(`${this.blurStrength}`).fontSize(16).width(40).textAlign(TextAlign.End)
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16 })
+
+            Row() {
+              Text(this.pixelInfo)
+                .fontSize(14)
+                .fontColor($r('sys.color.font_primary'))
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16 })
+            .height(30)
+
+            Button(this.isProcessing ? '处理中...' : '模糊')
+              .width('90%')
+              .height(48)
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .backgroundColor($r('app.color.brand'))
+              .fontColor(Color.White)
+              .borderRadius(24)
+              .onClick(() => this.startBlur())
+              .enabled(!this.isProcessing && this.crop.width > 10 && this.crop.height > 10)
           }
-          .width('100%')
           .layoutWeight(1)
-
-          Row() {
-            Text('模糊方式').width(70).fontSize(16).fontColor($r('sys.color.font_primary'))
-            Select(this.blurModeOptions)
-              .value(this.blurModeOptions[this.blurMode].value)
-              .selected(this.blurMode)
-              .onSelect((index: number) => {
-                this.blurMode = index;
-              })
-              .layoutWeight(1)
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16 })
-
-          Row() {
-            Text('模糊程度').width(70).fontSize(16).fontColor($r('sys.color.font_primary'))
-            Slider({
-              min: 1,
-              max: 40,
-              step: 1,
-              value: this.blurStrength
-            })
-              .onChange((value: number, mode: SliderChangeMode) => {
-                this.blurStrength = value;
-              })
-              .layoutWeight(1)
-              .selectedColor($r('app.color.brand'))
-            Text(`${this.blurStrength}`).fontSize(16).width(40).textAlign(TextAlign.End)
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16 })
-
-          Row() {
-            Text(this.pixelInfo)
-              .fontSize(14)
-              .fontColor($r('sys.color.font_primary'))
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16 })
-          .height(30)
-
-          // “模糊”按钮
-          Button(this.isProcessing ? '处理中...' : '模糊')
-            .width('90%')
-            .height(48)
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .backgroundColor($r('app.color.brand'))
-            .fontColor(Color.White)
-            .borderRadius(24)
-            .onClick(() => this.startBlur())
-            .enabled(!this.isProcessing && this.crop.width > 10 && this.crop.height > 10)
         }
-        .layoutWeight(1)
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onReady((context: NavDestinationContext)=>{
+      this.pathStack = context.pathStack;
+      const params = context.pathInfo.param as Record<string, string>;
+      if (params.imageUri) {
+        this.imageUri = params.imageUri;
+        this.prepareImage();
+      } else {
+        this.pathStack.pop();
+        return;
+      }
+    })
   }
 }

@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
@@ -14,9 +13,14 @@ interface Preset {
   ratio: number;
 }
 
-@Entry
+@Builder
+export function VideoCropPageBuilder() {
+  VideoCropPage();
+}
+
 @Component
-struct VideoCropPage {
+export struct VideoCropPage {
+  private pathStack: NavPathStack | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
   @State videoUri: string = '';
@@ -49,14 +53,7 @@ struct VideoCropPage {
   ];
 
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
-    if (params && params['videoUri']) {
-      this.videoUri = params['videoUri'];
-      this.prepareFrame();
-    } else {
-      promptAction.showToast({ message: '未传入视频' });
-      router.back();
-    }
+
   }
 
   aboutToDisappear() {
@@ -104,7 +101,7 @@ struct VideoCropPage {
     } catch (err) {
       console.error('准备帧失败:', err);
       promptAction.showToast({ message: '加载视频失败' });
-      router.back();
+      this.pathStack?.pop();
     }
   }
 
@@ -356,7 +353,7 @@ struct VideoCropPage {
       fileIo.closeSync(destFile);
       if (this.isPageAlive) {
         promptAction.showToast({ message: '裁剪视频已保存到相册' });
-        router.back();
+        this.pathStack?.pop();
       }
     } catch (err) {
       console.error('保存到图库失败:', err);
@@ -380,7 +377,7 @@ struct VideoCropPage {
         if (this.isExporting) {
           promptAction.showToast({ message: '正在裁剪，请使用"取消"按钮停止' });
         } else {
-          router.back();
+          this.pathStack?.pop();
         }
       })
       .height(40).width(40).buttonStyle(ButtonStyleMode.TEXTUAL)
@@ -399,109 +396,126 @@ struct VideoCropPage {
   }
 
   build() {
-    Column() {
-      this.buildTopBar();
-      if (this.isLoading) {
-        Column() {
-          LoadingProgress().width(48).height(48)
-          Text('加载视频中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
-        }
-        .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
-      } else {
-        Column({ space: 12 }) {
-          Stack() {
-            Image(`file://${this.framePath}`)
-              .width('100%')
-              .height('100%')
-              .objectFit(ImageFit.Contain)
-              .onAreaChange((_, newArea) => {
-                const w = Number(newArea.width);
-                const h = Number(newArea.height);
-                if (w > 0 && h > 0) {
-                  this.displayWidth = w;
-                  this.displayHeight = h;
-                  this.updateRenderRect(w, h);
-                  if (!this.cropInitialized && this.renderW > 0 && this.renderH > 0) {
-                    const margin = 20;
-                    const rect: RenderRect = {
-                      x: this.renderX + margin,
-                      y: this.renderY + margin,
-                      width: this.renderW - margin * 2,
-                      height: this.renderH - margin * 2
-                    };
-                    if (rect.width > 0 && rect.height > 0) {
-                      this.crop = rect;
-                      this.cropInitialized = true;
-                      this.updatePixelInfo(rect);
+    NavDestination() {
+      Column() {
+        this.buildTopBar();
+        if (this.isLoading) {
+          Column() {
+            LoadingProgress().width(48).height(48)
+            Text('加载视频中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
+          }
+          .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
+        } else {
+          Column({ space: 12 }) {
+            Stack() {
+              Image(`file://${this.framePath}`)
+                .width('100%')
+                .height('100%')
+                .objectFit(ImageFit.Contain)
+                .onAreaChange((_, newArea) => {
+                  const w = Number(newArea.width);
+                  const h = Number(newArea.height);
+                  if (w > 0 && h > 0) {
+                    this.displayWidth = w;
+                    this.displayHeight = h;
+                    this.updateRenderRect(w, h);
+                    if (!this.cropInitialized && this.renderW > 0 && this.renderH > 0) {
+                      const margin = 20;
+                      const rect: RenderRect = {
+                        x: this.renderX + margin,
+                        y: this.renderY + margin,
+                        width: this.renderW - margin * 2,
+                        height: this.renderH - margin * 2
+                      };
+                      if (rect.width > 0 && rect.height > 0) {
+                        this.crop = rect;
+                        this.cropInitialized = true;
+                        this.updatePixelInfo(rect);
+                      }
                     }
                   }
+                })
+                .onError((err) => console.error('Image加载失败:', err))
+
+              CropOverlay({
+                cropRect: this.crop,
+                imageWidth: this.displayWidth,
+                imageHeight: this.displayHeight,
+                renderX: this.renderX,
+                renderY: this.renderY,
+                renderWidth: this.renderW,
+                renderHeight: this.renderH,
+                onCropChange: (newCrop: RenderRect) => {
+                  this.onCropChange(newCrop);
                 }
               })
-              .onError((err) => console.error('Image加载失败:', err))
+                .width('100%')
+                .height('100%')
+                .position({ x: 0, y: 0 })
+            }
+            .width('100%')
+            .layoutWeight(1)
 
-            CropOverlay({
-              cropRect: this.crop,
-              imageWidth: this.displayWidth,
-              imageHeight: this.displayHeight,
-              renderX: this.renderX,
-              renderY: this.renderY,
-              renderWidth: this.renderW,
-              renderHeight: this.renderH,
-              onCropChange: (newCrop: RenderRect) => { this.onCropChange(newCrop); }
-            })
-              .width('100%')
-              .height('100%')
-              .position({ x: 0, y: 0 })
-          }
-          .width('100%')
-          .layoutWeight(1)
+            Row({ space: 8 }) {
+              ForEach(this.presets, (item: Preset, index: number) => {
+                Button(item.label)
+                  .fontSize(14)
+                  .padding({ left: 10, right: 10 })
+                  .height(32)
+                  .borderRadius(16)
+                  .backgroundColor(this.selectedPreset === index ?
+                    $r('sys.color.background_emphasize') :
+                    $r('sys.color.background_secondary'))
+                  .fontColor(this.selectedPreset === index ?
+                    Color.White :
+                    $r('sys.color.font_primary'))
+                  .onClick(() => this.applyPreset(item.ratio, index))
+                  .enabled(this.renderW > 0 && this.renderH > 0)
+              }, (item: Preset) => item.label)
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16 })
 
-          Row({ space: 8 }) {
-            ForEach(this.presets, (item: Preset, index: number) => {
-              Button(item.label)
+            Row() {
+              Text(this.pixelInfo)
                 .fontSize(14)
-                .padding({ left: 10, right: 10 })
-                .height(32)
-                .borderRadius(16)
-                .backgroundColor(this.selectedPreset === index ?
-                  $r('sys.color.background_emphasize') :
-                  $r('sys.color.background_secondary'))
-                .fontColor(this.selectedPreset === index ?
-                  Color.White :
-                  $r('sys.color.font_primary'))
-                .onClick(() => this.applyPreset(item.ratio, index))
-                .enabled(this.renderW > 0 && this.renderH > 0)
-            }, (item: Preset) => item.label)
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16 })
+                .fontColor($r('sys.color.font_primary'))
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16 })
+            .height(30)
 
-          Row() {
-            Text(this.pixelInfo)
-              .fontSize(14)
-              .fontColor($r('sys.color.font_primary'))
+            Button('裁剪')
+              .width('90%')
+              .height(48)
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .backgroundColor($r('app.color.brand'))
+              .fontColor(Color.White)
+              .borderRadius(24)
+              .onClick(() => this.doCrop())
+              .enabled(!this.isExporting && this.crop.width > 10 && this.crop.height > 10)
           }
-          .width('100%')
-          .padding({ left: 16, right: 16 })
-          .height(30)
-
-          Button('裁剪')
-            .width('90%')
-            .height(48)
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .backgroundColor($r('app.color.brand'))
-            .fontColor(Color.White)
-            .borderRadius(24)
-            .onClick(() => this.doCrop())
-            .enabled(!this.isExporting && this.crop.width > 10 && this.crop.height > 10)
+          .layoutWeight(1)
         }
-        .layoutWeight(1)
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onReady((context:NavDestinationContext)=>{
+      this.pathStack = context.pathStack;
+      const params = context.pathInfo.param as Record<string, string>;
+      if (params.videoUri) {
+        this.videoUri = params.videoUri;
+        this.prepareFrame();
+      } else {
+        this.pathStack.pop();
+        return;
+      }
+    })
   }
 }

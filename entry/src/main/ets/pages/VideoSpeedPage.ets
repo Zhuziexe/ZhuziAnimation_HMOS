@@ -1,12 +1,8 @@
-// VideoSpeedPage.ets
-import router from '@ohos.router';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { promptAction } from '@kit.ArkUI';
 import { executeCommand, stopCommand } from '@tyousan/ffmpeg';
-import { image } from '@kit.ImageKit';
-import { BusinessError } from '@kit.BasicServicesKit';
 import { ProcessingDialog } from '../components/ProcessingDialog';
 
 interface FfmpegResult {
@@ -22,9 +18,14 @@ interface FfmpegError {
 // 预定义倍速选项
 const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1.25, 1.5, 2.0, 4.0];
 
-@Entry
+@Builder
+export function VideoSpeedPageBuilder() {
+  VideoSpeedPage();
+}
+
 @Component
-struct VideoSpeedPage {
+export struct VideoSpeedPage {
+  private pathStack: NavPathStack | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
   @State videoUri: string = '';
   @State selectedSpeed: number = 1.5;
@@ -36,14 +37,6 @@ struct VideoSpeedPage {
   private progressDialogController: CustomDialogController | null = null;
 
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
-    if (params && params['videoUri']) {
-      this.videoUri = params['videoUri'];
-      // 可以获取视频缩略图或信息，这里略
-    } else {
-      promptAction.showToast({ message: '未传入视频' });
-      router.back();
-    }
   }
 
   aboutToDisappear() {
@@ -249,7 +242,7 @@ struct VideoSpeedPage {
       fileIo.closeSync(destFile);
       if (this.isPageAlive) {
         promptAction.showToast({ message: '变速视频已保存到相册' });
-        router.back();
+        this.pathStack?.pop();
       }
     } catch (err) {
       console.error('保存到图库失败:', err);
@@ -274,7 +267,7 @@ struct VideoSpeedPage {
         if (this.isProcessing) {
           promptAction.showToast({ message: '正在处理，请使用"取消"按钮停止' });
         } else {
-          router.back();
+          this.pathStack?.pop();
         }
       })
       .height(40).width(40).buttonStyle(ButtonStyleMode.TEXTUAL)
@@ -341,26 +334,40 @@ struct VideoSpeedPage {
   }
 
   build() {
-    Column() {
-      this.buildTopBar();
-      this.buildSpeedSelector()
+    NavDestination() {
+      Column() {
+        this.buildTopBar();
+        this.buildSpeedSelector()
 
-      Blank()
+        Blank()
 
-      Button('变速并导出')
-        .height(48)
-        .fontSize(18)
-        .fontWeight(FontWeight.Medium)
-        .backgroundColor($r('app.color.brand'))
-        .fontColor(Color.White)
-        .borderRadius(24)
-        .onClick(() => this.startSpeedExport())
-        .enabled(!this.isProcessing && this.selectedSpeed !== 1.0)
-        .width('90%')
+        Button('变速并导出')
+          .height(48)
+          .fontSize(18)
+          .fontWeight(FontWeight.Medium)
+          .backgroundColor($r('app.color.brand'))
+          .fontColor(Color.White)
+          .borderRadius(24)
+          .onClick(() => this.startSpeedExport())
+          .enabled(!this.isProcessing && this.selectedSpeed !== 1.0 && this.videoUri != '')
+          .width('90%')
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onReady((context:NavDestinationContext)=> {
+      this.pathStack = context.pathStack;
+      const params = context.pathInfo.param as Record<string, string>;
+      if (params.videoUri) {
+        this.videoUri = params.videoUri;
+      } else {
+        this.pathStack.pop();
+        return;
+      }
+    })
   }
 }

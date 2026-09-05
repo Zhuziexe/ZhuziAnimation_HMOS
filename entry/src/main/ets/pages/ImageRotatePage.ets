@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
@@ -8,9 +7,14 @@ import { image } from '@kit.ImageKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { ProcessingDialog } from '../components/ProcessingDialog';
 
-@Entry
+@Builder
+export function ImageRotatePageBuilder() {
+  ImageRotatePage();
+}
+
 @Component
-struct ImageRotatePage {
+export struct ImageRotatePage {
+  private pathStack: NavPathStack | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
   @State imageUri: string = '';
@@ -37,14 +41,7 @@ struct ImageRotatePage {
   ];
 
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
-    if (params && params['imageUri']) {
-      this.imageUri = params['imageUri'];
-      this.prepareImage();
-    } else {
-      promptAction.showToast({ message: '未传入图片' });
-      router.back();
-    }
+
   }
 
   aboutToDisappear() {
@@ -78,7 +75,7 @@ struct ImageRotatePage {
     } catch (err) {
       console.error('加载图片失败:', (err as BusinessError).message);
       promptAction.showToast({ message: '加载图片失败' });
-      router.back();
+      this.pathStack?.pop();
     }
   }
 
@@ -236,7 +233,7 @@ struct ImageRotatePage {
       fileIo.closeSync(destFile);
       if (this.isPageAlive) {
         promptAction.showToast({ message: '旋转图片已保存到相册' });
-        router.back();
+        this.pathStack?.pop();
       }
     } catch (err) {
       console.error('保存到图库失败:', err);
@@ -260,7 +257,7 @@ struct ImageRotatePage {
         if (this.isExporting) {
           promptAction.showToast({ message: '正在处理，请使用"取消"按钮停止' });
         } else {
-          router.back();
+          this.pathStack?.pop();
         }
       })
       .height(40).width(40).buttonStyle(ButtonStyleMode.TEXTUAL)
@@ -279,67 +276,82 @@ struct ImageRotatePage {
   }
 
   build() {
-    Column() {
-      this.buildTopBar();
+    NavDestination() {
+      Column() {
+        this.buildTopBar();
 
-      if (this.isLoading) {
-        Column() {
-          LoadingProgress().width(48).height(48)
-          Text('加载图片中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
-        }
-        .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
-      } else {
-        Column({ space: 16 }) {
-          // 预览区域（应用旋转/翻转效果）
-          Stack() {
-            Image(`file://${this.previewPath}`)
-              .width('100%')
-              .height('100%')
-              .objectFit(ImageFit.Contain)
-              .rotate({ angle: this.getRotateAngle() })
-              .scale({
-                x: this.getScaleX(),
-                y: this.getScaleY(),
-                centerX: '50%',
-                centerY: '50%'
-              })
-              .backgroundColor(Color.Transparent)
+        if (this.isLoading) {
+          Column() {
+            LoadingProgress().width(48).height(48)
+            Text('加载图片中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
           }
-          .width('100%')
-          .layoutWeight(1)
-          .clip(true)
+          .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
+        } else {
+          Column({ space: 16 }) {
+            // 预览区域（应用旋转/翻转效果）
+            Stack() {
+              Image(`file://${this.previewPath}`)
+                .width('100%')
+                .height('100%')
+                .objectFit(ImageFit.Contain)
+                .rotate({ angle: this.getRotateAngle() })
+                .scale({
+                  x: this.getScaleX(),
+                  y: this.getScaleY(),
+                  centerX: '50%',
+                  centerY: '50%'
+                })
+                .backgroundColor(Color.Transparent)
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .clip(true)
 
-          Row() {
-            Text('旋转方式').width(80).fontSize(16).fontColor($r('sys.color.font_primary'))
-            Select(this.rotateOptions)
-              .selected(0)
-              .value(this.rotateOptions[0].value)
-              .onSelect((index: number) => {
-                const modes = ['none', 'clockwise90', 'counterclockwise90', 'rotate180', 'hflip', 'vflip'];
-                this.rotateMode = modes[index] || 'none';
-              })
-              .layoutWeight(1)
-              .height(40)
-          }
-          .width('90%')
-
-          Button('旋转')
+            Row() {
+              Text('旋转方式').width(80).fontSize(16).fontColor($r('sys.color.font_primary'))
+              Select(this.rotateOptions)
+                .selected(0)
+                .value(this.rotateOptions[0].value)
+                .onSelect((index: number) => {
+                  const modes = ['none', 'clockwise90', 'counterclockwise90', 'rotate180', 'hflip', 'vflip'];
+                  this.rotateMode = modes[index] || 'none';
+                })
+                .layoutWeight(1)
+                .height(40)
+            }
             .width('90%')
-            .height(48)
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .backgroundColor($r('app.color.brand'))
-            .fontColor(Color.White)
-            .borderRadius(24)
-            .onClick(() => this.startRotate())
-            .enabled(!this.isExporting && this.rotateMode !== 'none')
+
+            Button('旋转')
+              .width('90%')
+              .height(48)
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .backgroundColor($r('app.color.brand'))
+              .fontColor(Color.White)
+              .borderRadius(24)
+              .onClick(() => this.startRotate())
+              .enabled(!this.isExporting && this.rotateMode !== 'none')
+          }
+          .layoutWeight(1)
         }
-        .layoutWeight(1)
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onReady((context:NavDestinationContext)=>{
+      this.pathStack = context.pathStack;
+      const params = context.pathInfo.param as Record<string, string>;
+      if (params.imageUri) {
+        this.imageUri = params.imageUri;
+        this.prepareImage();
+      } else {
+        this.pathStack.pop();
+        return;
+      }
+    })
   }
 }

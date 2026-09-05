@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { image } from '@kit.ImageKit';
@@ -6,9 +5,14 @@ import { promptAction } from '@kit.ArkUI';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { PixelPos } from '../common/CommonInterfaces';
 
-@Entry
+@Builder
+export function ImageColorPickerPageBuilder() {
+  ImageColorPickerPage();
+}
+
 @Component
-struct ImageColorPickerPage {
+export struct ImageColorPickerPage {
+  private pathStack: NavPathStack | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
   @State imageUri: string = '';
   @State pixelMap: image.PixelMap | null = null;
@@ -33,14 +37,6 @@ struct ImageColorPickerPage {
   private isPageAlive: boolean = true;
 
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
-    if (params && params['imageUri']) {
-      this.imageUri = params['imageUri'];
-      this.loadImage();
-    } else {
-      promptAction.showToast({ message: '未传入图片' });
-      router.back();
-    }
   }
 
   aboutToDisappear() {
@@ -74,7 +70,7 @@ struct ImageColorPickerPage {
     } catch (err) {
       console.error('加载图片失败:', err);
       promptAction.showToast({ message: '加载图片失败' });
-      router.back();
+      this.pathStack?.pop();
     }
   }
 
@@ -243,7 +239,7 @@ struct ImageColorPickerPage {
           .fontSize(24).width(24).height(24)
           .fontColor([$r('sys.color.font_primary')])
       }
-      .onClick(() => router.back())
+      .onClick(() => this.pathStack?.pop())
       .height(40).width(40).buttonStyle(ButtonStyleMode.TEXTUAL)
 
       Text('图片取色器')
@@ -276,83 +272,98 @@ struct ImageColorPickerPage {
   }
 
   build() {
-    Column() {
-      this.buildTopBar();
+    NavDestination() {
+      Column() {
+        this.buildTopBar();
 
-      Stack() {
-        if (this.isLoading) {
-          LoadingProgress().width(48).height(48)
-        } else if (this.pixelMap) {
-          Image(this.pixelMap)
+        Stack() {
+          if (this.isLoading) {
+            LoadingProgress().width(48).height(48)
+          } else if (this.pixelMap) {
+            Image(this.pixelMap)
+              .width('100%')
+              .height('100%')
+              .draggable(false)
+              .objectFit(ImageFit.Contain)
+              .onAreaChange((oldArea: Area, newArea: Area) => {
+                this.onImageAreaChange(newArea);
+              })
+              .onTouch((event: TouchEvent) => {
+                this.handleTouch(event);
+              })
+          } else {
+            Text('加载失败')
+          }
+
+          this.buildMagnifier()
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .clip(true)
+
+        Column({ space: 12 }) {
+          if (!this.hasColor) {
+            Text('点击或滑动图片取色')
+              .fontSize(16)
+              .fontColor($r('sys.color.font_primary'))
+              .height(80)
+          } else {
+            Row({ space: 12 }) {
+              Rect()
+                .width(32)
+                .height(32)
+                .fill(this.currentColor)
+                .borderRadius(4)
+                .border({ width: 1, color: '#E0E0E0' })
+
+              Text(this.currentColor)
+                .fontSize(18)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('sys.color.font_primary'))
+                .layoutWeight(1)
+
+              Button('复制')
+                .fontSize(14)
+                .fontColor($r('app.color.brand'))
+                .backgroundColor(Color.Transparent)
+                .onClick(() => this.copyHex())
+            }
             .width('100%')
-            .height('100%')
-            .draggable(false)
-            .objectFit(ImageFit.Contain)
-            .onAreaChange((oldArea: Area, newArea: Area) => {
-              this.onImageAreaChange(newArea);
-            })
-            .onTouch((event: TouchEvent) => {
-              this.handleTouch(event);
-            })
-        } else {
-          Text('加载失败')
-        }
 
-        this.buildMagnifier()
+            Row({ space: 12 }) {
+              Text(this.currentRgb)
+                .fontSize(14)
+                .fontColor($r('sys.color.font_primary'))
+              Text(this.currentHsl)
+                .fontSize(14)
+                .fontColor($r('sys.color.font_primary'))
+            }
+            .width('100%')
+            .justifyContent(FlexAlign.Start)
+          }
+        }
+        .height(101)
+        .width('100%')
+        .padding(16)
+        .backgroundColor($r('sys.color.background_tertiary'))
       }
       .width('100%')
-      .layoutWeight(1)
-      .clip(true)
-
-      Column({space:12}) {
-        if (!this.hasColor) {
-          Text('点击或滑动图片取色')
-            .fontSize(16)
-            .fontColor($r('sys.color.font_primary'))
-            .height(80)
-        } else {
-          Row({ space: 12 }) {
-            Rect()
-              .width(32)
-              .height(32)
-              .fill(this.currentColor)
-              .borderRadius(4)
-              .border({ width: 1, color: '#E0E0E0' })
-
-            Text(this.currentColor)
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('sys.color.font_primary'))
-              .layoutWeight(1)
-
-            Button('复制')
-              .fontSize(14)
-              .fontColor($r('app.color.brand'))
-              .backgroundColor(Color.Transparent)
-              .onClick(() => this.copyHex())
-          }
-          .width('100%')
-
-          Row({ space: 12 }) {
-            Text(this.currentRgb)
-              .fontSize(14)
-              .fontColor($r('sys.color.font_primary'))
-            Text(this.currentHsl)
-              .fontSize(14)
-              .fontColor($r('sys.color.font_primary'))
-          }
-          .width('100%')
-          .justifyContent(FlexAlign.Start)
-        }
-      }
-      .height(101)
-      .width('100%')
-      .padding(16)
+      .height('100%')
       .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onReady((context:NavDestinationContext)=>{
+      this.pathStack = context.pathStack;
+      const params = context.pathInfo.param as Record<string, string>;
+      if (params.imageUri) {
+        this.imageUri = params.imageUri;
+        this.loadImage();
+      } else {
+        this.pathStack.pop();
+        return;
+      }
+    })
   }
 }

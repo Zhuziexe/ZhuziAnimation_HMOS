@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
@@ -10,9 +9,19 @@ import { ProcessingDialog } from '../components/ProcessingDialog';
 import { RenderRect,PixelPos,FfmpegResult,FfmpegError } from '../common/CommonInterfaces'
 import { DraggableImageOverlay } from '../components/DraggableImageOverlay'
 
-@Entry
+export interface ImageOverlayParams {
+  baseImageUri: string;
+  overlayImageUri: string;
+}
+
+@Builder
+export function ImageOverlayPageBuilder() {
+  ImageOverlayPage();
+}
+
 @Component
-struct ImageOverlayPage {
+export struct ImageOverlayPage {
+  private pathStack: NavPathStack | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
   @State baseImageUri: string = '';
@@ -46,15 +55,7 @@ struct ImageOverlayPage {
   private progressDialogController: CustomDialogController | null = null;
 
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
-    if (params && params['baseImageUri'] && params['overlayImageUri']) {
-      this.baseImageUri = params['baseImageUri'];
-      this.overlayImageUri = params['overlayImageUri'];
-      this.prepareImages();
-    } else {
-      promptAction.showToast({ message: '缺少必要参数' });
-      router.back();
-    }
+
   }
 
   aboutToDisappear() {
@@ -100,7 +101,7 @@ struct ImageOverlayPage {
     } catch (err) {
       console.error('加载图片失败:', (err as BusinessError).message);
       promptAction.showToast({ message: '加载图片失败' });
-      router.back();
+      this.pathStack?.pop();
     }
   }
 
@@ -277,7 +278,7 @@ struct ImageOverlayPage {
       fileIo.closeSync(destFile);
       if (this.isPageAlive) {
         promptAction.showToast({ message: '叠加图片已保存到相册' });
-        router.back();
+        this.pathStack?.pop();
       }
     } catch (err) {
       console.error('保存到图库失败:', err);
@@ -301,7 +302,7 @@ struct ImageOverlayPage {
         if (this.isExporting) {
           promptAction.showToast({ message: '正在处理，请使用"取消"按钮停止' });
         } else {
-          router.back();
+          this.pathStack?.pop();
         }
       })
       .height(40).width(40).buttonStyle(ButtonStyleMode.TEXTUAL)
@@ -359,72 +360,94 @@ struct ImageOverlayPage {
   }
 
   build() {
-    Column() {
-      this.buildTopBar();
+    NavDestination() {
+      Column() {
+        this.buildTopBar();
 
-      if (this.isLoading) {
-        Column() {
-          LoadingProgress().width(48).height(48)
-          Text('加载图片中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
-        }
-        .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
-      } else {
-        Column({ space: 12 }) {
-          Stack() {
-            Image(`file://${this.previewPath}`)
-              .width('100%').height('100%')
-              .objectFit(ImageFit.Contain)
-              .backgroundColor(Color.Transparent)
-              .onAreaChange((_, newArea) => {
-                const w = Number(newArea.width);
-                const h = Number(newArea.height);
-                if (w > 0 && h > 0) {
-                  const rect = this.calcRenderRect(w, h);
-                  this.renderRect = rect;
-                  this.updateDisplayOverlaySize();
-                  if (!this.renderInitialized) {
-                    const screenPos = this.pixelToScreen(this.positionX, this.positionY);
-                    this.displayPosX = screenPos.x;
-                    this.displayPosY = screenPos.y;
-                    this.renderInitialized = true;
-                  }
-                }
-              })
-
-            if (this.renderInitialized && this.overlayPreviewPath) {
-              DraggableImageOverlay({
-                imageUri: `file://${this.overlayPreviewPath}`,
-                imageWidth: this.displayOverlayWidth,
-                imageHeight: this.displayOverlayHeight,
-                imageAlpha: this.overlayAlpha,
-                x: this.displayPosX,
-                y: this.displayPosY,
-                renderRect: this.renderRect,
-                onPositionChange: (x: number, y: number) => {
-                  this.displayPosX = x;
-                  this.displayPosY = y;
-                  const pixel = this.screenToPixel(x, y);
-                  this.positionX = pixel.x;
-                  this.positionY = pixel.y;
-                }
-              })
-            }
+        if (this.isLoading) {
+          Column() {
+            LoadingProgress().width(48).height(48)
+            Text('加载图片中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
           }
-          .width('100%').layoutWeight(1).clip(true)
+          .layoutWeight(1).justifyContent(FlexAlign.Center).width('100%')
+        } else {
+          Column({ space: 12 }) {
+            Stack() {
+              Image(`file://${this.previewPath}`)
+                .width('100%')
+                .height('100%')
+                .objectFit(ImageFit.Contain)
+                .backgroundColor(Color.Transparent)
+                .onAreaChange((_, newArea) => {
+                  const w = Number(newArea.width);
+                  const h = Number(newArea.height);
+                  if (w > 0 && h > 0) {
+                    const rect = this.calcRenderRect(w, h);
+                    this.renderRect = rect;
+                    this.updateDisplayOverlaySize();
+                    if (!this.renderInitialized) {
+                      const screenPos = this.pixelToScreen(this.positionX, this.positionY);
+                      this.displayPosX = screenPos.x;
+                      this.displayPosY = screenPos.y;
+                      this.renderInitialized = true;
+                    }
+                  }
+                })
 
-          this.buildControlPanel()
+              if (this.renderInitialized && this.overlayPreviewPath) {
+                DraggableImageOverlay({
+                  imageUri: `file://${this.overlayPreviewPath}`,
+                  imageWidth: this.displayOverlayWidth,
+                  imageHeight: this.displayOverlayHeight,
+                  imageAlpha: this.overlayAlpha,
+                  x: this.displayPosX,
+                  y: this.displayPosY,
+                  renderRect: this.renderRect,
+                  onPositionChange: (x: number, y: number) => {
+                    this.displayPosX = x;
+                    this.displayPosY = y;
+                    const pixel = this.screenToPixel(x, y);
+                    this.positionX = pixel.x;
+                    this.positionY = pixel.y;
+                  }
+                })
+              }
+            }
+            .width('100%').layoutWeight(1).clip(true)
 
-          Button('叠加并导出')
-            .width('90%').height(48).fontSize(18).fontWeight(FontWeight.Medium)
-            .backgroundColor($r('app.color.brand')).fontColor(Color.White).borderRadius(24)
-            .onClick(() => this.startExport())
-            .enabled(!this.isExporting)
+            this.buildControlPanel()
+
+            Button('叠加并导出')
+              .width('90%')
+              .height(48)
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .backgroundColor($r('app.color.brand'))
+              .fontColor(Color.White)
+              .borderRadius(24)
+              .onClick(() => this.startExport())
+              .enabled(!this.isExporting)
+          }
+          .layoutWeight(1)
         }
-        .layoutWeight(1)
       }
+      .width('100%').height('100%')
+      .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%').height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onReady((context: NavDestinationContext) => {
+      this.pathStack = context.pathStack;
+      const params = context.pathInfo.param as Record<string, string>;
+      if (params.baseImageUri && params.overlayImageUri) {
+        this.baseImageUri = params.baseImageUri;
+        this.overlayImageUri = params.overlayImageUri;
+        this.prepareImages();
+      } else {
+        this.pathStack.pop();
+        return;
+      }
+    })
   }
 }

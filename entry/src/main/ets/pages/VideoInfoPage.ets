@@ -1,15 +1,17 @@
-import router from '@ohos.router';
 import { FFprobeResult, FfprobeStream } from '../common/ffmpegType';
 import pasteboard from '@ohos.pasteboard';
 import promptAction from '@ohos.promptAction';
-import { fileUri } from '@kit.CoreFileKit';
 
-@Entry
+@Builder
+export function VideoInfoPageBuilder() {
+  VideoInfoPage();
+}
+
 @Component
-struct VideoInfoPage {
+export struct VideoInfoPage {
+  private pathStack: NavPathStack | null = null;
   @State videoinfo: FFprobeResult | null = null;
 
-  // 折叠状态
   @State videoExpanded:boolean = false;
   @State fileExpanded: boolean = true;
   @State streamsExpanded: boolean = true;
@@ -17,19 +19,7 @@ struct VideoInfoPage {
   private videoController: VideoController = new VideoController()
 
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
-    if (params && params.videoInfo) {
-      try {
-        this.videoinfo = JSON.parse(params.videoInfo) as FFprobeResult;
-      } catch (e) {
-        console.error('解析视频信息失败', e);
-        this.videoinfo = null;
-      }
-    }
-  }
 
-  async handleBack() {
-    router.back();
   }
 
   @Builder
@@ -43,7 +33,7 @@ struct VideoInfoPage {
           .fontColor([$r('sys.color.font_primary')])
       }
       .onClick(() => {
-        this.handleBack();
+        this.pathStack?.pop();
       })
       .height(40)
       .width(40)
@@ -166,149 +156,16 @@ struct VideoInfoPage {
   }
 
   build() {
-    Column() {
-      this.buildTopBar();
-      if (this.videoinfo) {
-        Scroll() {
-          Column() {
-            // ---------- 视频播放卡片（可折叠） ----------
+    NavDestination() {
+      Column() {
+        this.buildTopBar();
+        if (this.videoinfo) {
+          Scroll() {
             Column() {
-              Row() {
-                Text('视频播放')
-                  .fontSize(22)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('sys.color.font_primary'))
-                Blank()
-                SymbolGlyph($r('sys.symbol.chevron_down'))
-                  .fontSize(24)
-                  .fontColor([$r('sys.color.font_secondary')])
-                  .rotate({ angle: this.videoExpanded ? 180 : 0 })
-              }
-              .width('100%')
-              .height(48)
-              .padding({ left: 0, right: 0 })
-              .onClick(() => {
-                animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
-                  this.videoExpanded = !this.videoExpanded;
-                });
-                if(this.videoExpanded){
-                  this.videoController.reset();
-                  this.videoController.start();
-                }
-              })
-
-              if (this.videoExpanded) {
-                Divider().strokeWidth(2).color($r('sys.color.background_fourth'))
-                Column() {
-                  Video({
-                    src: this.videoinfo.filename,
-                    controller: this.videoController
-                  })
-                    .width('100%')
-                    .aspectRatio(16 / 9)
-                    .objectFit(ImageFit.Contain) // 保持视频比例填充
-                    .backgroundColor($r('sys.color.background_primary'))
-                }
-                .width('100%')
-                .padding({ top: 4, bottom: 4 })
-                .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
-              }
-            }
-            .width('100%')
-            .padding(12)
-            .backgroundColor($r('sys.color.background_primary'))
-            .borderRadius(8)
-            .margin({ bottom: 12 })
-
-            // ---------- 文件信息卡片（可折叠） ----------
-            Column() {
-              // 标题行
-              Row() {
-                Text('文件信息')
-                  .fontSize(22)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('sys.color.font_primary'))
-                Blank()
-                SymbolGlyph($r('sys.symbol.chevron_down'))
-                  .fontSize(24)
-                  .fontColor([$r('sys.color.font_secondary')])
-                  .rotate({ angle: this.fileExpanded ? 180 : 0 })
-              }
-              .width('100%')
-              .height(48)
-              .padding({ left: 0, right: 0 })
-              .onClick(() => {
-                animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
-                  this.fileExpanded = !this.fileExpanded;
-                });
-              })
-
-              if (this.fileExpanded) {
-                Divider().strokeWidth(2).color($r('sys.color.background_fourth'))
-                Column() {
-                  this.buildInfoRow('文件URL', this.videoinfo?.filename ?? '')
-                  this.buildInfoRow('格式', this.videoinfo?.format ?? '')
-                  this.buildInfoRow('详细格式', this.videoinfo?.longFormat ?? '')
-                  this.buildInfoRow('大小', this.videoinfo?.size ?? '')
-                  this.buildInfoRow('时长', this.videoinfo?.duration ?? '')
-                  this.buildInfoRow('比特率', this.videoinfo?.bitrate ?? '')
-                }
-                .width('100%')
-                .padding({ top: 4, bottom: 4 })
-                .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
-              }
-            }
-            .width('100%')
-            .padding(12)
-            .backgroundColor($r('sys.color.background_primary'))
-            .borderRadius(8)
-            .margin({ bottom: 12 })
-
-            // ---------- 流信息卡片（可折叠） ----------
-            Column() {
-              Row() {
-                Text('流信息')
-                  .fontSize(22)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('sys.color.font_primary'))
-                Blank()
-                SymbolGlyph($r('sys.symbol.chevron_down'))
-                  .fontSize(24)
-                  .fontColor([$r('sys.color.font_secondary')])
-                  .rotate({ angle: this.streamsExpanded ? 180 : 0 })
-              }
-              .width('100%')
-              .height(48)
-              .padding({ left: 0, right: 0 })
-              .onClick(() => {
-                animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
-                  this.streamsExpanded = !this.streamsExpanded;
-                });
-              })
-
-              if (this.streamsExpanded) {
-                Divider().strokeWidth(2).color($r('sys.color.background_fourth'))
-                Column() {
-                  ForEach(this.videoinfo.allProperties.streams, (stream: FfprobeStream, index: number) => {
-                    this.buildStreamItem(stream)
-                  }, (stream: FfprobeStream, index: number) => index.toString())
-                }
-                .width('100%')
-                .padding({ top: 4, bottom: 4 })
-                .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
-              }
-            }
-            .width('100%')
-            .padding(12)
-            .backgroundColor($r('sys.color.background_primary'))
-            .borderRadius(8)
-            .margin({ bottom: 12 })
-
-            // ---------- 元数据卡片（可折叠） ----------
-            if (this.videoinfo.tags && Object.keys(this.videoinfo.tags).length > 0) {
+              // ---------- 视频播放卡片（可折叠） ----------
               Column() {
                 Row() {
-                  Text('元数据')
+                  Text('视频播放')
                     .fontSize(22)
                     .fontWeight(FontWeight.Bold)
                     .fontColor($r('sys.color.font_primary'))
@@ -316,23 +173,32 @@ struct VideoInfoPage {
                   SymbolGlyph($r('sys.symbol.chevron_down'))
                     .fontSize(24)
                     .fontColor([$r('sys.color.font_secondary')])
-                    .rotate({ angle: this.tagsExpanded ? 180 : 0 })
+                    .rotate({ angle: this.videoExpanded ? 180 : 0 })
                 }
                 .width('100%')
                 .height(48)
                 .padding({ left: 0, right: 0 })
                 .onClick(() => {
                   animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
-                    this.tagsExpanded = !this.tagsExpanded;
+                    this.videoExpanded = !this.videoExpanded;
                   });
+                  if (this.videoExpanded) {
+                    this.videoController.reset();
+                    this.videoController.start();
+                  }
                 })
 
-                if (this.tagsExpanded) {
+                if (this.videoExpanded) {
                   Divider().strokeWidth(2).color($r('sys.color.background_fourth'))
                   Column() {
-                    ForEach(Object.keys(this.videoinfo.tags), (key: string) => {
-                      this.buildInfoRow(key, this.videoinfo!.tags[key] ?? '')
-                    }, (key: string) => key)
+                    Video({
+                      src: this.videoinfo.filename,
+                      controller: this.videoController
+                    })
+                      .width('100%')
+                      .aspectRatio(16 / 9)
+                      .objectFit(ImageFit.Contain) // 保持视频比例填充
+                      .backgroundColor($r('sys.color.background_primary'))
                   }
                   .width('100%')
                   .padding({ top: 4, bottom: 4 })
@@ -344,26 +210,172 @@ struct VideoInfoPage {
               .backgroundColor($r('sys.color.background_primary'))
               .borderRadius(8)
               .margin({ bottom: 12 })
+
+              // ---------- 文件信息卡片（可折叠） ----------
+              Column() {
+                // 标题行
+                Row() {
+                  Text('文件信息')
+                    .fontSize(22)
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor($r('sys.color.font_primary'))
+                  Blank()
+                  SymbolGlyph($r('sys.symbol.chevron_down'))
+                    .fontSize(24)
+                    .fontColor([$r('sys.color.font_secondary')])
+                    .rotate({ angle: this.fileExpanded ? 180 : 0 })
+                }
+                .width('100%')
+                .height(48)
+                .padding({ left: 0, right: 0 })
+                .onClick(() => {
+                  animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
+                    this.fileExpanded = !this.fileExpanded;
+                  });
+                })
+
+                if (this.fileExpanded) {
+                  Divider().strokeWidth(2).color($r('sys.color.background_fourth'))
+                  Column() {
+                    this.buildInfoRow('文件URL', this.videoinfo?.filename ?? '')
+                    this.buildInfoRow('格式', this.videoinfo?.format ?? '')
+                    this.buildInfoRow('详细格式', this.videoinfo?.longFormat ?? '')
+                    this.buildInfoRow('大小', this.videoinfo?.size ?? '')
+                    this.buildInfoRow('时长', this.videoinfo?.duration ?? '')
+                    this.buildInfoRow('比特率', this.videoinfo?.bitrate ?? '')
+                  }
+                  .width('100%')
+                  .padding({ top: 4, bottom: 4 })
+                  .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
+                }
+              }
+              .width('100%')
+              .padding(12)
+              .backgroundColor($r('sys.color.background_primary'))
+              .borderRadius(8)
+              .margin({ bottom: 12 })
+
+              // ---------- 流信息卡片（可折叠） ----------
+              Column() {
+                Row() {
+                  Text('流信息')
+                    .fontSize(22)
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor($r('sys.color.font_primary'))
+                  Blank()
+                  SymbolGlyph($r('sys.symbol.chevron_down'))
+                    .fontSize(24)
+                    .fontColor([$r('sys.color.font_secondary')])
+                    .rotate({ angle: this.streamsExpanded ? 180 : 0 })
+                }
+                .width('100%')
+                .height(48)
+                .padding({ left: 0, right: 0 })
+                .onClick(() => {
+                  animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
+                    this.streamsExpanded = !this.streamsExpanded;
+                  });
+                })
+
+                if (this.streamsExpanded) {
+                  Divider().strokeWidth(2).color($r('sys.color.background_fourth'))
+                  Column() {
+                    ForEach(this.videoinfo.allProperties.streams, (stream: FfprobeStream, index: number) => {
+                      this.buildStreamItem(stream)
+                    }, (stream: FfprobeStream, index: number) => index.toString())
+                  }
+                  .width('100%')
+                  .padding({ top: 4, bottom: 4 })
+                  .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
+                }
+              }
+              .width('100%')
+              .padding(12)
+              .backgroundColor($r('sys.color.background_primary'))
+              .borderRadius(8)
+              .margin({ bottom: 12 })
+
+              // ---------- 元数据卡片（可折叠） ----------
+              if (this.videoinfo.tags && Object.keys(this.videoinfo.tags).length > 0) {
+                Column() {
+                  Row() {
+                    Text('元数据')
+                      .fontSize(22)
+                      .fontWeight(FontWeight.Bold)
+                      .fontColor($r('sys.color.font_primary'))
+                    Blank()
+                    SymbolGlyph($r('sys.symbol.chevron_down'))
+                      .fontSize(24)
+                      .fontColor([$r('sys.color.font_secondary')])
+                      .rotate({ angle: this.tagsExpanded ? 180 : 0 })
+                  }
+                  .width('100%')
+                  .height(48)
+                  .padding({ left: 0, right: 0 })
+                  .onClick(() => {
+                    animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
+                      this.tagsExpanded = !this.tagsExpanded;
+                    });
+                  })
+
+                  if (this.tagsExpanded) {
+                    Divider().strokeWidth(2).color($r('sys.color.background_fourth'))
+                    Column() {
+                      ForEach(Object.keys(this.videoinfo.tags), (key: string) => {
+                        this.buildInfoRow(key, this.videoinfo!.tags[key] ?? '')
+                      }, (key: string) => key)
+                    }
+                    .width('100%')
+                    .padding({ top: 4, bottom: 4 })
+                    .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
+                  }
+                }
+                .width('100%')
+                .padding(12)
+                .backgroundColor($r('sys.color.background_primary'))
+                .borderRadius(8)
+                .margin({ bottom: 12 })
+              }
             }
+            .padding({ left: 16, right: 16, bottom: 16 })
+            .width('100%')
           }
-          .padding({ left: 16, right: 16, bottom: 16 })
-          .width('100%')
-        }
-        .layoutWeight(1)
-        .scrollBar(BarState.Auto)
-        .align(Alignment.Top)
-        .contentStartOffset(12)
-      } else {
-        Text('获取失败')
           .layoutWeight(1)
-          .fontSize(22)
-          .fontColor($r('sys.color.font_secondary'))
-          .textAlign(TextAlign.Center)
+          .scrollBar(BarState.Auto)
+          .align(Alignment.Top)
+          .contentStartOffset(12)
+        } else {
+          Text('获取失败')
+            .layoutWeight(1)
+            .fontSize(22)
+            .fontColor($r('sys.color.font_secondary'))
+            .textAlign(TextAlign.Center)
+        }
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onReady((context: NavDestinationContext)=>{
+      this.pathStack = context.pathStack;
+      const params = context.pathInfo.param as Record<string, FFprobeResult>;
+      if (params.videoInfo) {
+        try {
+          this.videoinfo = params.videoInfo;
+        } catch {
+          promptAction.showToast({
+            message:'获取视频信息失败'
+          });
+          this.pathStack.pop();
+          return;
+        }
+      } else {
+        this.pathStack.pop();
+        return;
+      }
+    })
   }
 }

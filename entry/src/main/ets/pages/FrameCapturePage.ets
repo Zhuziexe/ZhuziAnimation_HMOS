@@ -1,13 +1,17 @@
-import router from '@ohos.router';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { promptAction } from '@kit.ArkUI';
 import { executeCommandSync, CommandSyncResult } from '@tyousan/ffmpeg';
 
-@Entry
+@Builder
+export function FrameCapturePageBuilder() {
+  FrameCapturePage();
+}
+
 @Component
-struct FrameCapturePage {
+export struct FrameCapturePage {
+  private pathStack: NavPathStack | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
   @State videoUri: string = '';
@@ -16,14 +20,6 @@ struct FrameCapturePage {
   private videoController: VideoController = new VideoController();
 
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
-    if (params && params['videoUri']) {
-      this.videoUri = params['videoUri'];
-      this.isReady = true;
-    } else {
-      promptAction.showToast({ message: '未传入视频' });
-      router.back();
-    }
   }
 
   aboutToDisappear() {
@@ -43,7 +39,6 @@ struct FrameCapturePage {
       const inputPath = cacheDir + 'tmp_video.mp4';
       const outputPath = cacheDir + 'capture_frame.png';
 
-      // 复制视频到缓存
       await this.copyMediaUriToPath(this.videoUri, inputPath);
 
       const timeInSeconds = this.currentTime.toFixed(3);
@@ -114,7 +109,7 @@ struct FrameCapturePage {
           .height(24)
           .fontColor([$r('sys.color.font_primary')])
       }
-      .onClick(() => { router.back(); })
+      .onClick(() => { this.pathStack?.pop(); })
       .height(40)
       .width(40)
       .buttonStyle(ButtonStyleMode.TEXTUAL)
@@ -134,59 +129,76 @@ struct FrameCapturePage {
   }
 
   build() {
-    Column() {
-      this.buildTopBar();
+    NavDestination() {
+      Column() {
+        this.buildTopBar();
 
-      if (this.isReady && this.videoUri) {
-        Column({ space: 12 }) {
-          Video({
-            src: this.videoUri,
-            controller: this.videoController
-          })
-            .width('100%')
-            .layoutWeight(1)
-            .autoPlay(false)
-            .controls(true)
-            .objectFit(ImageFit.Contain)
-            .onPrepared(() => {
-              this.videoController.setCurrentTime(0);
-              this.videoController.pause();
+        if (this.isReady && this.videoUri) {
+          Column({ space: 12 }) {
+            Video({
+              src: this.videoUri,
+              controller: this.videoController
             })
-            .onUpdate((event) => {
-              this.currentTime = event.time;
-            })
+              .width('100%')
+              .layoutWeight(1)
+              .autoPlay(false)
+              .controls(true)
+              .objectFit(ImageFit.Contain)
+              .onPrepared(() => {
+                this.videoController.setCurrentTime(0);
+                this.videoController.pause();
+              })
+              .onUpdate((event) => {
+                this.currentTime = event.time;
+              })
 
-          Button('截取此帧')
-            .onClick(() => { this.captureFrame(); })
-            .width('90%')
-            .height(48)
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .backgroundColor($r('app.color.brand'))
-            .fontColor(Color.White)
-            .borderRadius(24)
-            .margin({ bottom: 20 })
+            Button('截取此帧')
+              .onClick(() => {
+                this.captureFrame();
+              })
+              .width('90%')
+              .height(48)
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .backgroundColor($r('app.color.brand'))
+              .fontColor(Color.White)
+              .borderRadius(24)
+              .margin({ bottom: 20 })
+          }
+          .layoutWeight(1)
+          .padding({ top: 8 })
+        } else {
+          Column() {
+            LoadingProgress()
+              .width(48)
+              .height(48)
+            Text('加载中...')
+              .fontSize(16)
+              .fontColor($r('sys.color.font_secondary'))
+              .margin({ top: 12 })
+          }
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+          .width('100%')
         }
-        .layoutWeight(1)
-        .padding({ top: 8 })
-      } else {
-        Column() {
-          LoadingProgress()
-            .width(48)
-            .height(48)
-          Text('加载中...')
-            .fontSize(16)
-            .fontColor($r('sys.color.font_secondary'))
-            .margin({ top: 12 })
-        }
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-        .width('100%')
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onReady((context: NavDestinationContext)=>{
+      this.pathStack = context.pathStack;
+      const params = context.pathInfo.param as Record<string, string>;
+      if (params.videoUri) {
+        this.videoUri = params.videoUri;
+        this.isReady = true;
+      } else {
+        this.pathStack.pop();
+        return;
+      }
+    })
   }
 }

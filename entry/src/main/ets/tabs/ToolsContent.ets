@@ -1,12 +1,15 @@
 import { getVideoInfo } from '../common/VideoUtils';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { common } from '@kit.AbilityKit';
-import { promptAction, router } from '@kit.ArkUI';
+import { promptAction } from '@kit.ArkUI';
 import { fileIo as fs, picker } from '@kit.CoreFileKit';
 import { ExtractAudioDialog } from '../components/ExtractAudioDialog';
 import { VideoMuteDialog } from '../components/VideoMuteDialog';
 import { GifSettingsDialog } from '../components/VideoToGifDialog';
 import { SegmentButtonItemTuple, SegmentButton, SegmentButtonOptions } from '@kit.ArkUI';
+import { VideoUriInterface, VideoInfoInterface, ImageUriInterface } from '../common/CommonInterfaces';
+import { VideoOverlayParams } from '../pages/VideoOverlayPage';
+import { ImageOverlayParams } from '../pages/ImageOverlayPage'
 
 interface MiniTool {
   toolIcon: Resource;
@@ -31,6 +34,7 @@ export struct ToolsContent {
     selectedBackgroundColor: $r('app.color.selected_tab_button')
   });
   @StorageLink('toolIndex') selectedIndexes: number[] = [0];
+  pathStack: NavPathStack = AppStorage.get('pathStack') as NavPathStack;
 
   private videoTools: MiniTool[] = [
     {
@@ -46,22 +50,22 @@ export struct ToolsContent {
     {
       toolIcon: $r('sys.symbol.arrow_up_and_rectangle_on_rectangle'),
       toolName: '视频单帧提取',
-      toolAction: () => { this.pickVideoForPage('pages/FrameCapturePage'); }
+      toolAction: () => { this.pickVideoForPage('FrameCapturePage'); }
     },
     {
       toolIcon: $r('sys.symbol.crop'),
       toolName: '视频画面裁剪',
-      toolAction: () => { this.pickVideoForPage('pages/VideoCropPage'); }
+      toolAction: () => { this.pickVideoForPage('VideoCropPage'); }
     },
     {
       toolIcon: $r('sys.symbol.rotate_left'),
       toolName: '视频旋转',
-      toolAction: () => { this.pickVideoForPage('pages/VideoRotatePage'); }
+      toolAction: () => { this.pickVideoForPage('VideoRotatePage'); }
     },
     {
       toolIcon: $r('sys.symbol.character_square'),
       toolName: '视频文字水印',
-      toolAction: () => { this.pickVideoForPage('pages/VideoWatermarkPage'); }
+      toolAction: () => { this.pickVideoForPage('VideoWatermarkPage'); }
     },
     {
       toolIcon: $r('sys.symbol.star_square_on_square'),
@@ -71,12 +75,12 @@ export struct ToolsContent {
     {
       toolIcon: $r('sys.symbol.make_video'),
       toolName: '视频区域模糊',
-      toolAction: () => { this.pickVideoForPage('pages/VideoBlurPage'); }
+      toolAction: () => { this.pickVideoForPage('VideoBlurPage'); }
     },
     {
       toolIcon: $r('sys.symbol.video_speed'),
       toolName: '视频变速',
-      toolAction: () => { this.pickVideoForPage('pages/VideoSpeedPage'); }
+      toolAction: () => { this.pickVideoForPage('VideoSpeedPage'); }
     },
     {
       toolIcon: $r('sys.symbol.music_slash_fill'),
@@ -94,12 +98,12 @@ export struct ToolsContent {
     {
       toolIcon: $r('sys.symbol.rotate_left'),
       toolName: '图片旋转',
-      toolAction: () => { this.pickImageForPage('pages/ImageRotatePage'); }
+      toolAction: () => { this.pickImageForPage('ImageRotatePage'); }
     },
     {
       toolIcon: $r('sys.symbol.character_square'),
       toolName: '图片文字水印',
-      toolAction: () => { this.pickImageForPage('pages/ImageWatermarkPage'); }
+      toolAction: () => { this.pickImageForPage('ImageWatermarkPage'); }
     },
     {
       toolIcon: $r('sys.symbol.star_square_on_square'),
@@ -109,26 +113,25 @@ export struct ToolsContent {
     {
       toolIcon: $r('sys.symbol.square_split_2x1_dash'),
       toolName: '图片区域模糊',
-      toolAction: () => { this.pickImageForPage('pages/ImageBlurPage'); }
+      toolAction: () => { this.pickImageForPage('ImageBlurPage'); }
     },
     {
       toolIcon: $r('sys.symbol.celiakeyboard_menu_icon_size'),
       toolName: '图片缩放',
-      toolAction: () => { this.pickImageForPage('pages/ImageStretchPage'); }
+      toolAction: () => { this.pickImageForPage('ImageStretchPage'); }
     },
     {
       toolIcon: $r('sys.symbol.camera_filters'),
       toolName: '迷幻变色',
-      toolAction: () => { this.pickImageForPage('pages/ImageColorPage'); }
+      toolAction: () => { this.pickImageForPage('ImageColorPage'); }
     },
     {
       toolIcon: $r('sys.symbol.eyedropper'),
       toolName: '图片取色器',
-      toolAction: () => { this.pickImageForPage('pages/ImageColorPickerPage'); }
+      toolAction: () => { this.pickImageForPage('ImageColorPickerPage'); }
     }
   ];
 
-  // ---------- 原有方法全部保留，未改动 ----------
   private async cleanToolsCache(): Promise<void> {
     try {
       const cacheDir = this.context.cacheDir;
@@ -208,10 +211,10 @@ export struct ToolsContent {
     if (!uri) return;
     const videoInfo = await getVideoInfo(uri, this.context);
     if (videoInfo) {
-      router.pushUrl({
-        url: 'pages/VideoInfoPage',
-        params: { videoInfo: JSON.stringify(videoInfo) }
-      });
+      this.pathStack.pushPath({
+        name:'VideoInfoPage',
+        param:{videoInfo:videoInfo} as VideoInfoInterface
+      })
     } else {
       promptAction.showToast({ message: "获取视频信息失败" });
     }
@@ -234,10 +237,10 @@ export struct ToolsContent {
     await this.cleanToolsCache();
     const uri = await this.pickVideo();
     if (!uri) return;
-    router.pushUrl({
-      url: pageUrl,
-      params: { videoUri: uri }
-    });
+    this.pathStack?.pushPath({
+      name:pageUrl,
+      param:{ videoUri:uri } as VideoUriInterface
+    })
   }
 
   private async pickVideoForOverlay() {
@@ -249,13 +252,10 @@ export struct ToolsContent {
       const imageUri = await this.pickImage();
       if (!imageUri) return;
 
-      router.pushUrl({
-        url: 'pages/VideoOverlayPage',
-        params: {
-          videoUri: videoUri,
-          imageUri: imageUri
-        }
-      });
+      this.pathStack.pushPath({
+        name:'VideoOverlayPage',
+        param: {videoUri:videoUri,imageUri:imageUri} as VideoOverlayParams
+      })
     } catch (err) {
       console.error('选择视频或图片失败:', err);
       promptAction.showToast({ message: '选择失败' });
@@ -308,13 +308,10 @@ export struct ToolsContent {
       const overlayUri = await this.pickImage();
       if (!overlayUri) return;
 
-      router.pushUrl({
-        url: 'pages/ImageOverlayPage',
-        params: {
-          baseImageUri: baseUri,
-          overlayImageUri: overlayUri
-        }
-      });
+      this.pathStack.pushPath({
+        name:'ImageOverlayPage',
+        param:{baseImageUri:baseUri,overlayImageUri:overlayUri} as ImageOverlayParams
+      })
     } catch (err) {
       console.error('选择图片失败:', err);
       promptAction.showToast({ message: '选择图片失败' });
@@ -326,9 +323,9 @@ export struct ToolsContent {
       await this.cleanToolsCache();
       const uri = await this.pickImage();
       if (!uri) return;
-      router.pushUrl({
-        url: pageUrl,
-        params: { imageUri: uri }
+      this.pathStack?.pushPath({
+        name: pageUrl,
+        param: { imageUri:uri } as ImageUriInterface
       });
     } catch (err) {
       console.error('选择图片失败:', err);
@@ -336,7 +333,6 @@ export struct ToolsContent {
     }
   }
 
-  // ---------- UI 构建方法 ----------
   @Builder
   buildTool(toolIcon: Resource, toolName: string, toolAction: () => void) {
     Row() {

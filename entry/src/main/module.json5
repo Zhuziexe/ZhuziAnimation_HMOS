@@ -39,6 +39,7 @@
         "name": "ohos.permission.PREPARE_APP_TERMINATE",
         "reason": "$string:prepare_app_terminate_reason"
       }
-    ]
+    ],
+    "routerMap": "$profile:router_map"
   }
 }

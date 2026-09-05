@@ -1,3 +1,5 @@
+import { FFprobeResult } from "./ffmpegType";
+
 export interface RenderRect {
   x: number;
   y: number;
@@ -19,4 +21,16 @@ export interface FfmpegError {
   errCode?: number | string;
   message?: string;
   stderr?: string;
+}
+
+export interface VideoUriInterface {
+  videoUri: string;
+}
+
+export interface ImageUriInterface {
+  imageUri: string;
+}
+
+export interface VideoInfoInterface {
+  videoInfo: FFprobeResult
 }

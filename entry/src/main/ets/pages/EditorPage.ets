@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { FrameData } from '../model/FrameData';
 import { FrameList } from '../components/FrameList';
 import { Preview } from '../components/Preview';
@@ -28,9 +27,20 @@ interface FpsRepeat {
   repeat: number;
 }
 
-@Entry
+export interface EditorPageParams {
+  projectId?: string;
+  projectName?: string;
+}
+
+@Builder
+export function EditorPageBuilder(){
+  EditorPage();
+}
+
 @Component
-struct EditorPage {
+export struct EditorPage {
+  pathStack: NavPathStack | null = null;
+
   private saveOptionsDialogController: CustomDialogController | null = null;
   private loadingDialogController: CustomDialogController | null = null;
   private propertyDialogController: CustomDialogController | null = null;
@@ -74,20 +84,6 @@ struct EditorPage {
         this.deleteDirectoryRecursive(oldCache);
       }
     } catch (e) {}
-
-    const params = router.getParams() as Record<string, string>;
-    if (params && params['projectId']) {
-      this.projectId = params['projectId'];
-      this.isNewProject = false;
-      await this.loadProject();
-    } else if (params && params['projectName']) {
-      this.projectName = params['projectName'];
-      this.projectId = Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
-      this.isNewProject = true;
-    } else {
-      router.back();
-      return;
-    }
 
     this.currentIndex = this.frames.length > 0 ? this.frames.length - 1 : -1;
     this.updatePreview();
@@ -377,24 +373,18 @@ struct EditorPage {
     }
   }
 
-  onBackPress() {
-    if (this.isDirty) {
-      this.saveProject().then(() => {
-        router.back();
-      });
-      return true;
-    }
-    return false;
-  }
-
   private handleBack() {
     if (this.isSaving) return;
     if (this.isDirty) {
       this.saveProject().then(() => {
-        router.back();
+        AppStorage.set('needRefreshProjects', true);
+        this.pathStack?.pop();
       });
+      return;
     } else {
-      router.back();
+      AppStorage.set('needRefreshProjects', true);
+      this.pathStack?.pop();
+      return;
     }
   }
 
@@ -693,86 +683,31 @@ struct EditorPage {
   }
 
   build() {
-    Column() {
-      this.buildTopBar();
+    NavDestination() {
+      Column() {
+        this.buildTopBar();
 
-      if (this.windowWidth >= 840) {
-        Row() {
-          FrameList({
-            frames: this.frames,
-            currentIndex: this.currentIndex,
-            onSelect: (idx: number) => {
-              this.currentIndex = idx;
-              this.updatePreview();
-            },
-            onMove: (from: number, to: number) => this.moveFrame(from, to),
-            onDelete: (idx: number) => this.deleteFrame(idx),
-            onAdd: () => this.addFrames(),
-            isWideScreen: true
-          })
-            .width(300)
-            .height('100%')
-            .enabled(!this.isSaving)
-
-          Column() {
-            Preview({ imageUri: this.previewUri })
-              .layoutWeight(1);
-            ControlBar({
-              isPlaying: this.isPlaying,
-              progress: this.currentIndex,
-              max: this.frames.length - 1,
-              onPlayToggle: () => this.togglePlay(),
-              onProgressChange: (pos: number) => this.onProgressChange(pos)
+        if (this.windowWidth >= 840) {
+          Row() {
+            FrameList({
+              frames: this.frames,
+              currentIndex: this.currentIndex,
+              onSelect: (idx: number) => {
+                this.currentIndex = idx;
+                this.updatePreview();
+              },
+              onMove: (from: number, to: number) => this.moveFrame(from, to),
+              onDelete: (idx: number) => this.deleteFrame(idx),
+              onAdd: () => this.addFrames(),
+              isWideScreen: true
             })
-              .height(80)
+              .width(300)
+              .height('100%')
               .enabled(!this.isSaving)
-          }
-          .layoutWeight(1)
-          .height('100%');
-        }
-        .layoutWeight(1);
-      } else if(this.windowHeight >= 600) {
-        Column() {
-          Column() {
-            Preview({ imageUri: this.previewUri })
-              .layoutWeight(1);
-            ControlBar({
-              isPlaying: this.isPlaying,
-              progress: this.currentIndex,
-              max: this.frames.length - 1,
-              onPlayToggle: () => this.togglePlay(),
-              onProgressChange: (pos: number) => this.onProgressChange(pos)
-            })
-              .height(80)
-              .enabled(!this.isSaving)
-          }
-          .layoutWeight(1)
-          .width('100%');
 
-          FrameList({
-            frames: this.frames,
-            currentIndex: this.currentIndex,
-            onSelect: (idx: number) => {
-              this.currentIndex = idx;
-              this.updatePreview();
-            },
-            onMove: (from: number, to: number) => this.moveFrame(from, to),
-            onDelete: (idx: number) => this.deleteFrame(idx),
-            onAdd: () => this.addFrames(),
-            isWideScreen: false
-          })
-            .height('50%')
-            .width('100%')
-            .enabled(!this.isSaving)
-        }
-        .layoutWeight(1);
-      } else {
-        // 不是，这么小的屏幕还制作定格动画干什么
-        Tabs(){
-          TabContent(){
             Column() {
               Preview({ imageUri: this.previewUri })
-                .layoutWeight(1)
+                .layoutWeight(1);
               ControlBar({
                 isPlaying: this.isPlaying,
                 progress: this.currentIndex,
@@ -783,11 +718,28 @@ struct EditorPage {
                 .height(80)
                 .enabled(!this.isSaving)
             }
-            .width('100%')
-            .height('100%')
+            .layoutWeight(1)
+            .height('100%');
           }
-          .tabBar(SubTabBarStyle.of('预览'))
-          TabContent(){
+          .layoutWeight(1);
+        } else if (this.windowHeight >= 600) {
+          Column() {
+            Column() {
+              Preview({ imageUri: this.previewUri })
+                .layoutWeight(1);
+              ControlBar({
+                isPlaying: this.isPlaying,
+                progress: this.currentIndex,
+                max: this.frames.length - 1,
+                onPlayToggle: () => this.togglePlay(),
+                onProgressChange: (pos: number) => this.onProgressChange(pos)
+              })
+                .height(80)
+                .enabled(!this.isSaving)
+            }
+            .layoutWeight(1)
+            .width('100%');
+
             FrameList({
               frames: this.frames,
               currentIndex: this.currentIndex,
@@ -800,23 +752,102 @@ struct EditorPage {
               onAdd: () => this.addFrames(),
               isWideScreen: false
             })
+              .height('50%')
+              .width('100%')
               .enabled(!this.isSaving)
+          }
+          .layoutWeight(1);
+        } else {
+          Tabs() {
+            TabContent() {
+              Column() {
+                Preview({ imageUri: this.previewUri })
+                  .layoutWeight(1)
+                ControlBar({
+                  isPlaying: this.isPlaying,
+                  progress: this.currentIndex,
+                  max: this.frames.length - 1,
+                  onPlayToggle: () => this.togglePlay(),
+                  onProgressChange: (pos: number) => this.onProgressChange(pos)
+                })
+                  .height(80)
+                  .enabled(!this.isSaving)
+              }
               .width('100%')
               .height('100%')
+            }
+            .tabBar(SubTabBarStyle.of('预览'))
+
+            TabContent() {
+              FrameList({
+                frames: this.frames,
+                currentIndex: this.currentIndex,
+                onSelect: (idx: number) => {
+                  this.currentIndex = idx;
+                  this.updatePreview();
+                },
+                onMove: (from: number, to: number) => this.moveFrame(from, to),
+                onDelete: (idx: number) => this.deleteFrame(idx),
+                onAdd: () => this.addFrames(),
+                isWideScreen: false
+              })
+                .enabled(!this.isSaving)
+                .width('100%')
+                .height('100%')
+            }
+            .tabBar(SubTabBarStyle.of('编辑'))
           }
-          .tabBar(SubTabBarStyle.of('编辑'))
+          .vertical(false)
+          .scrollable(false)
+          .barMode(BarMode.Fixed)
+          .barOverlap(false)
+          .width('100%')
+          .layoutWeight(1)
         }
-        .vertical(false)
-        .scrollable(false)
-        .barMode(BarMode.Fixed)
-        .barOverlap(false)
-        .width('100%')
-        .layoutWeight(1)
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .onReady((context: NavDestinationContext) => {
+      this.pathStack = context.pathStack;
+
+      const params = context.pathInfo?.param as Record<string, string> | undefined;
+      if (params?.projectId) {
+        this.projectId = params.projectId;
+        this.isNewProject = false;
+        this.loadProject();
+      } else if (params?.projectName) {
+        this.projectName = params.projectName;
+        this.projectId = Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+        this.isNewProject = true;
+        this.frames = [];
+        this.currentIndex = -1;
+        this.updatePreview();
+      } else {
+        this.pathStack?.pop();
+        return;
+      }
+
+      this.isDirty = false;
+      AppStorage.set('editorIsDirty', false);
+      this.shouldSaveAndExit = false;
+    })
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onBackPressed(() => {
+      if (this.isSaving) return true;
+      if (this.isDirty) {
+        this.saveProject().then(() => {
+          AppStorage.set('needRefreshProjects', true); // 设置刷新标记
+          this.pathStack?.pop();
+        });
+        return true;
+      } else {
+        AppStorage.set('needRefreshProjects', true); // 设置刷新标记
+        return false;
+      }
+    })
   }
 }

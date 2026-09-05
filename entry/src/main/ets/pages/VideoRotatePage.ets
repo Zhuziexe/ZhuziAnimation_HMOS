@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
@@ -6,9 +5,14 @@ import { promptAction } from '@kit.ArkUI';
 import { executeCommand, stopCommand, executeCommandSync, CommandSyncResult } from '@tyousan/ffmpeg';
 import { ProcessingDialog } from '../components/ProcessingDialog';
 
-@Entry
+@Builder
+export function VideoRotatePageBuilder() {
+  VideoRotatePage();
+}
+
 @Component
-struct VideoRotatePage {
+export struct VideoRotatePage {
+  private pathStack: NavPathStack | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
   @State videoUri: string = '';
@@ -32,14 +36,7 @@ struct VideoRotatePage {
   ];
 
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
-    if (params && params['videoUri']) {
-      this.videoUri = params['videoUri'];
-      this.prepareFrame();
-    } else {
-      promptAction.showToast({ message: '未传入视频' });
-      router.back();
-    }
+
   }
 
   aboutToDisappear() {
@@ -76,7 +73,7 @@ struct VideoRotatePage {
     } catch (err) {
       console.error('准备帧失败:', err);
       promptAction.showToast({ message: '加载视频失败' });
-      router.back();
+      this.pathStack?.pop();
     }
   }
 
@@ -237,7 +234,7 @@ struct VideoRotatePage {
       fileIo.closeSync(destFile);
       if (this.isPageAlive) {
         promptAction.showToast({ message: '旋转视频已保存到相册' });
-        router.back();
+        this.pathStack?.pop();
       }
     } catch (err) {
       console.error('保存到图库失败:', err);
@@ -263,7 +260,7 @@ struct VideoRotatePage {
         if (this.isRotating) {
           promptAction.showToast({ message: '正在旋转，请使用"取消"按钮停止' });
         } else {
-          router.back();
+          this.pathStack?.pop();
         }
       })
       .height(40)
@@ -285,72 +282,87 @@ struct VideoRotatePage {
   }
 
   build() {
-    Column() {
-      this.buildTopBar();
+    NavDestination() {
+      Column() {
+        this.buildTopBar();
 
-      if (this.isLoading) {
-        Column() {
-          LoadingProgress().width(48).height(48)
-          Text('加载视频中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
-        }
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-        .width('100%')
-      } else {
-        Column({ space: 16 }) {
-          Stack(){
-            Image(`file://${this.framePath}`)
-              .width('100%')
-              .height('100%')
-              .objectFit(ImageFit.Contain)
-              .rotate({ angle: this.getRotateAngle() })
-              .scale({
-                x: this.getScaleX(),
-                y: this.getScaleY(),
-                centerX: '50%',
-                centerY: '50%'
-              })
-              .backgroundColor(Color.Transparent)
-              .borderRadius(8)
+        if (this.isLoading) {
+          Column() {
+            LoadingProgress().width(48).height(48)
+            Text('加载视频中...').fontSize(16).fontColor($r('sys.color.font_secondary')).margin({ top: 12 })
           }
-          .width('100%')
           .layoutWeight(1)
-          .clip(true)   // 父容器裁剪
+          .justifyContent(FlexAlign.Center)
+          .width('100%')
+        } else {
+          Column({ space: 16 }) {
+            Stack() {
+              Image(`file://${this.framePath}`)
+                .width('100%')
+                .height('100%')
+                .objectFit(ImageFit.Contain)
+                .rotate({ angle: this.getRotateAngle() })
+                .scale({
+                  x: this.getScaleX(),
+                  y: this.getScaleY(),
+                  centerX: '50%',
+                  centerY: '50%'
+                })
+                .backgroundColor(Color.Transparent)
+                .borderRadius(8)
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .clip(true) // 父容器裁剪
 
-          Row() {
-            Text('旋转方式')
-              .width(80)
-              .fontSize(16)
-              .fontColor($r('sys.color.font_primary'))
-            Select(this.rotateOptions)
-              .selected(0)
-              .value(this.rotateOptions[0].value)
-              .onSelect((index: number) => {
-                const modes = ['none', 'clockwise90', 'counterclockwise90', 'rotate180', 'hflip', 'vflip'];
-                this.rotateMode = modes[index] || 'none';
-              })
-              .layoutWeight(1)
-              .height(40)
-          }
-          .width('90%')
-
-          Button('旋转')
+            Row() {
+              Text('旋转方式')
+                .width(80)
+                .fontSize(16)
+                .fontColor($r('sys.color.font_primary'))
+              Select(this.rotateOptions)
+                .selected(0)
+                .value(this.rotateOptions[0].value)
+                .onSelect((index: number) => {
+                  const modes = ['none', 'clockwise90', 'counterclockwise90', 'rotate180', 'hflip', 'vflip'];
+                  this.rotateMode = modes[index] || 'none';
+                })
+                .layoutWeight(1)
+                .height(40)
+            }
             .width('90%')
-            .height(48)
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .backgroundColor($r('app.color.brand'))
-            .fontColor(Color.White)
-            .borderRadius(24)
-            .onClick(() => this.startRotate())
-            .enabled(!this.isRotating && this.rotateMode !== 'none')
+
+            Button('旋转')
+              .width('90%')
+              .height(48)
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .backgroundColor($r('app.color.brand'))
+              .fontColor(Color.White)
+              .borderRadius(24)
+              .onClick(() => this.startRotate())
+              .enabled(!this.isRotating && this.rotateMode !== 'none')
+          }
+          .layoutWeight(1)
         }
-        .layoutWeight(1)
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_tertiary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .onReady((context:NavDestinationContext)=>{
+      this.pathStack = context.pathStack;
+      const params = context.pathInfo.param as Record<string, string>;
+      if (params.videoUri) {
+        this.videoUri = params.videoUri;
+        this.prepareFrame();
+      } else {
+        this.pathStack.pop();
+        return;
+      }
+    })
   }
 }
