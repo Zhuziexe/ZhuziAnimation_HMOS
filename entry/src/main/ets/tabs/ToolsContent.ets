@@ -408,21 +408,12 @@ export struct ToolsContent {
       .width('100%')
       .align(Alignment.Top)
       .alignListItem(ListItemAlign.Center)
-      .contentStartOffset(110)
+      .contentStartOffset(56)
       .contentEndOffset(80)
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
       // 标题栏和分段按钮
-      Column({ space: 4 }) {
-        Row() {
-          Text($r('app.string.tools_page'))
-            .fontSize(24)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-        }
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-        .height(56)
+      Column() {
         SegmentButton({
           options: this.tabOptions,
           selectedIndexes: this.selectedIndexes
@@ -430,10 +421,9 @@ export struct ToolsContent {
           .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           .width('100%')
           .height(40)
-          .padding(2)
       }
       .width('100%')
-      .padding({ left: 16, right: 16 })
+      .padding({ left: 16, right: 16,top:8,bottom:8 })
       .position({ x: 0, y: 0 })
       .zIndex(1)
       .backgroundColor('#00000000')

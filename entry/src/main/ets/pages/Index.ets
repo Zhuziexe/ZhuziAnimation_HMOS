@@ -2,7 +2,7 @@ import { HomeContent } from '../tabs/HomeContent';
 import { ProjectManager, ProjectMeta } from '../common/ProjectManager';
 import { ZapUtils } from '../common/ZapUtils';
 import { common } from '@kit.AbilityKit';
-import { HdsTabsController, HdsTabs, hdsMaterial } from '@kit.UIDesignKit';
+import { HdsTabsController, HdsTabs, hdsMaterial, HdsNavigation } from '@kit.UIDesignKit';
 import { ToolsContent } from '../tabs/ToolsContent';
 import { picker } from '@kit.CoreFileKit';
 import { fileIo } from '@kit.CoreFileKit';
@@ -22,6 +22,12 @@ struct Index {
 
   private tabcont: HdsTabsController = new HdsTabsController();
   private windowClass?: window.Window;
+
+  private titles: ResourceStr[] = [
+    $r('app.string.tools_page'),
+    $r('app.string.EntryAbility_label'),
+    $r('app.string.stop_motion_animation')
+  ]
 
   pathStack: NavPathStack = new NavPathStack();
 
@@ -349,6 +355,52 @@ struct Index {
       .labelStyle({ unselectedColor: $r('sys.color.font_primary'),selectedColor: $r('app.color.brand') });
   }
 
+  @Builder
+  buildMenus(): void{
+    Row({space:4}) {
+      Button(this.sortBy === 'time' ? '按时间' : '按名称')
+        .fontSize(18)
+        .backgroundColor($r('app.color.icon_button'))
+        .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
+        .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
+        .fontColor($r('sys.color.font_primary'))
+        .onClick(() => {
+          this.sortBy = this.sortBy === 'time' ? 'name' : 'time';
+          this.projects = ProjectManager.sortProjects(this.projects, this.sortBy);
+        })
+
+      Button() {
+        SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
+          .fontSize(24)
+          .fontColor([$r('sys.color.font_primary')])
+      }
+      .width(40)
+      .height(40)
+      .borderRadius(20)
+      .backgroundColor($r('app.color.icon_button'))
+      .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
+      .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
+      .bindMenu([
+        { value: "导入 ZHUZIANI 文件", action: () => this.importZapProject() },
+        { value: "关于", action: () => showAbout() }
+      ])
+
+      Button() {
+        SymbolGlyph($r('sys.symbol.plus'))
+          .fontSize(24)
+          .fontColor([Color.White])
+      }
+      .width(40)
+      .height(40)
+      .borderRadius(20)
+      .backgroundColor($r('app.color.brand'))
+      .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
+      .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
+      .onClick(() => this.createProject())
+    }
+    .padding({right:12,top:16})
+  }
+
   build() {
     Navigation(this.pathStack) {
       Column() {
@@ -377,10 +429,9 @@ struct Index {
           .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
           TabContent() {
-            Stack() {
-              Column() {
-                if (this.projects.length === 0) {
-                  Column() {
+            Column() {
+              if (this.projects.length === 0) {
+                Column() {
                     Text('还没有项目')
                       .fontSize(18)
                       .fontColor($r('sys.color.font_primary'))
@@ -393,9 +444,9 @@ struct Index {
                   .width('100%')
                   .layoutWeight(1)
                   .justifyContent(FlexAlign.Center)
-                  .padding({ top: 56, bottom: 80 })
-                } else {
-                  List({ space: 4 }) {
+                  .padding({ bottom: 80 })
+              } else {
+                List({ space: 4 }) {
                     ForEach(this.projects, (project: ProjectMeta, index: number) => {
                       ListItem() {
                         Row() {
@@ -458,85 +509,10 @@ struct Index {
                   .layoutWeight(1)
                   .width('100%')
                   .contentEndOffset(80)
-                  .contentStartOffset(56)
                   .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-                }
               }
-              .width('100%')
-              .height('100%')
-              .backgroundColor($r('sys.color.background_secondary'))
-              .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-
-              Row() {
-                Text($r('app.string.stop_motion_animation'))
-                  .fontSize(24)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                  .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-
-                Button(this.sortBy === 'time' ? '按时间' : '按名称')
-                  .fontSize(18)
-                  .backgroundColor($r('app.color.icon_button'))
-                  .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
-                  .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
-                  .fontColor($r('sys.color.font_primary'))
-                  .onClick(() => {
-                    this.sortBy = this.sortBy === 'time' ? 'name' : 'time';
-                    this.projects = ProjectManager.sortProjects(this.projects, this.sortBy);
-                  })
-                  .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-
-                Button() {
-                  SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
-                    .fontSize(24)
-                    .fontColor([$r('sys.color.font_primary')])
-                    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-                }
-                .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-                .width(40)
-                .height(40)
-                .borderRadius(20)
-                .backgroundColor($r('app.color.icon_button'))
-                .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
-                .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
-                .margin({ left: 8 })
-                .bindMenu([
-                  { value: "导入 ZHUZIANI 文件", action: () => this.importZapProject() },
-                  { value: "关于", action: () => showAbout() }
-                ])
-
-                Button() {
-                  SymbolGlyph($r('sys.symbol.plus'))
-                    .fontSize(24)
-                    .fontColor([Color.White])
-                }
-                .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-                .width(40)
-                .height(40)
-                .borderRadius(20)
-                .backgroundColor($r('app.color.brand'))
-                .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
-                .shadow({ radius: 10, color: 'rgba(0, 0, 0, 0.2)' })
-                .margin({ left: 8 })
-                .onClick(() => this.createProject())
-              }
-              .width('100%')
-              .height(56)
-              .padding({ left: 16, right: 16 })
-              .position({ x: 0, y: 0 })
-              .zIndex(1)
-              .backgroundColor('#00000000')
-              .linearGradient({
-                angle: 0,
-                colors: [
-                  [$r('app.color.titlebar_gradient_end'), 0.0],
-                  [$r('sys.color.background_secondary'), 1.0]
-                ]
-              })
-              .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
             }
-            .alignContent(Alignment.TopStart)
+            .backgroundColor($r('sys.color.background_secondary'))
             .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
             .width('100%')
             .height('100%')
@@ -572,6 +548,9 @@ struct Index {
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }
     .mode(NavigationMode.Stack)
-    .hideTitleBar(true)
+    .title(this.titles[this.tabindex],{
+      barStyle:BarStyle.STANDARD
+    })
+    .menus(this.tabindex == 2 ? this.buildMenus:[])
   }
 }

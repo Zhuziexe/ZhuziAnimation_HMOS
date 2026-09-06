@@ -649,7 +649,6 @@ export struct EditorPage {
           .backgroundColor(this.isDirty ? $r('app.color.brand') : Color.Transparent)
           .borderRadius(18)
           .height(36)
-          .padding({ left: 16, right: 16 })
           .enabled(!this.isSaving && this.isDirty)
           .onClick(() => {
             this.handleManualSave();
@@ -676,10 +675,10 @@ export struct EditorPage {
       }
     }
     .width('100%')
-    .height(56)
-    .padding({ left: 16, right: 16 })
+    .padding({ left: 16, right: 16, top:8,bottom:8 })
     .backgroundColor($r('sys.color.background_primary'))
     .shadow({ radius: 2, color: '#1A000000', offsetY: 1 })
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   build() {
@@ -704,6 +703,7 @@ export struct EditorPage {
               .width(300)
               .height('100%')
               .enabled(!this.isSaving)
+              .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
             Column() {
               Preview({ imageUri: this.previewUri })
@@ -719,10 +719,13 @@ export struct EditorPage {
                 .enabled(!this.isSaving)
             }
             .layoutWeight(1)
-            .height('100%');
+            .height('100%')
+            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           }
-          .layoutWeight(1);
-        } else if (this.windowHeight >= 600) {
+          .layoutWeight(1)
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+        }
+        else if (this.windowHeight >= 600) {
           Column() {
             Column() {
               Preview({ imageUri: this.previewUri })
@@ -738,7 +741,8 @@ export struct EditorPage {
                 .enabled(!this.isSaving)
             }
             .layoutWeight(1)
-            .width('100%');
+            .width('100%')
+            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
             FrameList({
               frames: this.frames,
@@ -755,9 +759,12 @@ export struct EditorPage {
               .height('50%')
               .width('100%')
               .enabled(!this.isSaving)
+              .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           }
-          .layoutWeight(1);
-        } else {
+          .layoutWeight(1)
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+        }
+        else {
           Tabs() {
             TabContent() {
               Column() {
@@ -772,11 +779,14 @@ export struct EditorPage {
                 })
                   .height(80)
                   .enabled(!this.isSaving)
+                  .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
               }
               .width('100%')
               .height('100%')
+              .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
             }
             .tabBar(SubTabBarStyle.of('预览'))
+            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
             TabContent() {
               FrameList({
@@ -794,8 +804,10 @@ export struct EditorPage {
                 .enabled(!this.isSaving)
                 .width('100%')
                 .height('100%')
+                .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
             }
             .tabBar(SubTabBarStyle.of('编辑'))
+            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           }
           .vertical(false)
           .scrollable(false)
@@ -803,12 +815,13 @@ export struct EditorPage {
           .barOverlap(false)
           .width('100%')
           .layoutWeight(1)
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
         }
       }
       .width('100%')
       .height('100%')
       .backgroundColor($r('sys.color.background_tertiary'))
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }
     .onReady((context: NavDestinationContext) => {
       this.pathStack = context.pathStack;

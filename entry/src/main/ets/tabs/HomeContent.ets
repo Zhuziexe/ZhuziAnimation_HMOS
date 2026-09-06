@@ -21,8 +21,7 @@ export struct HomeContent {
   }
 
   build() {
-    Stack() {
-      Scroll() {
+    Scroll() {
         Column({ space: 12 }) {
           Text(this.getGreeting())
             .padding({left:8,right:8})
@@ -78,37 +77,8 @@ export struct HomeContent {
       .width('100%')
       .height('100%')
       .align(Alignment.Top)
-      .contentStartOffset(56)
       .contentEndOffset(80)
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-
-      Row() {
-        Text($r('app.string.EntryAbility_label'))
-          .fontSize(24)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1)
-          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-      }
-      .width('100%')
-      .height(56)
-      .padding({ left: 16, right: 16 })
-      .position({ x: 0, y: 0 })
-      .zIndex(1)
-      .backgroundColor('#00000000')
-      .linearGradient({
-        angle: 0,
-        colors: [
-          [$r('app.color.titlebar_gradient_end'), 0.0],
-          [$r('sys.color.background_secondary'), 1.0]
-        ]
-      })
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-    }
-    .alignContent(Alignment.TopStart)
-    .width('100%')
-    .height('100%')
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   @Builder

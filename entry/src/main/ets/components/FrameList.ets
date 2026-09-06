@@ -122,6 +122,7 @@ export struct FrameList {
         })
       })
     }
+    .expandSafeArea([SafeAreaType.SYSTEM],[SafeAreaEdge.TOP,SafeAreaEdge.BOTTOM])
   }
 
   build() {
@@ -132,15 +133,20 @@ export struct FrameList {
         }
         .width('100%')
         .layoutWeight(1)
+        .alignListItem(ListItemAlign.Start)
+        .expandSafeArea([SafeAreaType.SYSTEM],[SafeAreaEdge.TOP,SafeAreaEdge.BOTTOM])
 
         ToolBar({
           toolBarList: this.FrameTools
         })
           .width('100%')
+          .expandSafeArea([SafeAreaType.SYSTEM],[SafeAreaEdge.TOP,SafeAreaEdge.BOTTOM])
+
       }
       .width('100%')
       .height('100%')
       .backgroundColor($r('sys.color.background_tertiary'))
+      .expandSafeArea([SafeAreaType.SYSTEM],[SafeAreaEdge.TOP,SafeAreaEdge.BOTTOM])
     }else{
       Row(){
         List({ space: 2 }) {
@@ -148,12 +154,15 @@ export struct FrameList {
         }
         .width('100%')
         .layoutWeight(1)
+        .alignListItem(ListItemAlign.Start)
+        .expandSafeArea([SafeAreaType.SYSTEM],[SafeAreaEdge.TOP,SafeAreaEdge.BOTTOM])
 
         Divider()
           .vertical(true)
 
         this.buildVerticalToolBar();
       }
+      .expandSafeArea([SafeAreaType.SYSTEM],[SafeAreaEdge.TOP,SafeAreaEdge.BOTTOM])
     }
   }
 }
