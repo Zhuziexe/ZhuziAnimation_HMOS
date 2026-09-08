@@ -3,6 +3,8 @@ export struct HomeContent {
   @StorageLink('tabindex') tabindex: number = 1;
   @StorageLink('toolIndex') toolIndex: number[] = [0];
 
+  scroller?: Scroller;
+
   private getGreeting(): string {
     const hour = new Date().getHours();
     if (hour < 6) return '🌃 夜深了';
@@ -21,7 +23,7 @@ export struct HomeContent {
   }
 
   build() {
-    Scroll() {
+    Scroll(this.scroller) {
         Column({ space: 12 }) {
           Text(this.getGreeting())
             .padding({left:8,right:8})
@@ -68,17 +70,21 @@ export struct HomeContent {
               () => this.goToProjects()
             )
           }
+          .clip(false)
         }
         .width('100%')
         .padding({ left: 20, right: 20 })
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center)
-      }
-      .width('100%')
-      .height('100%')
-      .align(Alignment.Top)
-      .contentEndOffset(80)
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+        .clip(false)
+    }
+    .width('100%')
+    .height('100%')
+    .align(Alignment.Top)
+    .contentEndOffset(80)
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .clip(false)
+    .edgeEffect(EdgeEffect.Spring)
   }
 
   @Builder

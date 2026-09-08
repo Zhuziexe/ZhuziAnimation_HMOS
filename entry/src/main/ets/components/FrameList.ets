@@ -132,8 +132,10 @@ export struct FrameList {
           this.buildFrameList();
         }
         .width('100%')
+        .height('100%')
         .layoutWeight(1)
         .alignListItem(ListItemAlign.Start)
+        .align(Alignment.Top)
         .expandSafeArea([SafeAreaType.SYSTEM],[SafeAreaEdge.TOP,SafeAreaEdge.BOTTOM])
 
         ToolBar({
@@ -153,13 +155,13 @@ export struct FrameList {
           this.buildFrameList();
         }
         .width('100%')
+        .height('100%')
         .layoutWeight(1)
         .alignListItem(ListItemAlign.Start)
+        .align(Alignment.Top)
         .expandSafeArea([SafeAreaType.SYSTEM],[SafeAreaEdge.TOP,SafeAreaEdge.BOTTOM])
-
         Divider()
           .vertical(true)
-
         this.buildVerticalToolBar();
       }
       .expandSafeArea([SafeAreaType.SYSTEM],[SafeAreaEdge.TOP,SafeAreaEdge.BOTTOM])

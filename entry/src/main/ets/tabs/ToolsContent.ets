@@ -24,6 +24,8 @@ export struct ToolsContent {
   private videoMuteDialogController: CustomDialogController | null = null;
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
+  scroller?: Scroller;
+
   @State tabOptions: SegmentButtonOptions = SegmentButtonOptions.capsule({
     buttons: [
       { text: '音视频' },
@@ -390,7 +392,7 @@ export struct ToolsContent {
 
   build() {
     Stack() {
-      List({ space: 12 }) {
+      List({ space: 12, scroller: this.scroller }) {
         if (this.selectedIndexes[0] == 0) {
           ListItem() {
             this.renderToolList(this.videoTools)
@@ -406,13 +408,14 @@ export struct ToolsContent {
         }
       }
       .width('100%')
+      .height('100%')
       .align(Alignment.Top)
       .alignListItem(ListItemAlign.Center)
       .contentStartOffset(56)
       .contentEndOffset(80)
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      .clip(false)
 
-      // 标题栏和分段按钮
       Column() {
         SegmentButton({
           options: this.tabOptions,
@@ -427,18 +430,13 @@ export struct ToolsContent {
       .position({ x: 0, y: 0 })
       .zIndex(1)
       .backgroundColor('#00000000')
-      .linearGradient({
-        angle: 0,
-        colors: [
-          [$r('app.color.titlebar_gradient_end'), 0.0],
-          [$r('sys.color.background_secondary'), 1.0]
-        ]
-      })
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      .clip(false)
     }
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .alignContent(Alignment.TopStart)
     .width('100%')
     .height('100%')
+    .clip(false)
   }
 }

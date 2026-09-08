@@ -853,12 +853,12 @@ export struct EditorPage {
       if (this.isSaving) return true;
       if (this.isDirty) {
         this.saveProject().then(() => {
-          AppStorage.set('needRefreshProjects', true); // 设置刷新标记
+          AppStorage.set('needRefreshProjects', true);
           this.pathStack?.pop();
         });
         return true;
       } else {
-        AppStorage.set('needRefreshProjects', true); // 设置刷新标记
+        AppStorage.set('needRefreshProjects', true);
         return false;
       }
     })
